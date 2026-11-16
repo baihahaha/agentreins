@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** living document. Individual decisions are recorded as ADRs in [docs/adr/](docs/adr/); this file is the map.
+**Status:** ⚠️ early draft, not yet agreed. Requirements are settled in [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md); this file will be rewritten in step 2 (module map) and step 3 (interface contracts). Until then, treat everything below as a proposal.
 
 ## Component model
 
