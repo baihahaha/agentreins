@@ -1,76 +1,136 @@
 # Architecture
 
-**Status:** ⚠️ early draft, not yet agreed. Requirements are settled in [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md); this file will be rewritten in step 2 (module map) and step 3 (interface contracts). Until then, treat everything below as a proposal.
+- **Status:** step 2 (module map and project structure) agreed 2026-11-16. Step 3 (interface contracts) is next.
+- **Requirements and decisions:** [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). This file describes *how* the code is organized to meet them.
+- **Detailed design of each module:** ADRs in [docs/adr/](docs/adr/), written when that module is built.
 
-## Component model
+## Shape: ports and adapters
+
+The core logic never talks to the outside world directly. It talks only to **ports** (interfaces). **Adapters** are the real implementations (Anthropic, SQLite, MCP, Chroma…). Swapping an adapter never touches the core. That is what makes runs testable offline and portable across providers and platforms.
 
 ```text
-                Application code
-                       |
-                       v
-+------------------- Agent Runtime --------------------+
-|  bounded step loop · budgets · cancellation          |
-|  interrupts (approval) · hooks/middleware            |
-+-------+----------------+----------------+------------+
-        |                |                |
-  Model Adapter    Context Manager    Tool Harness
-  (Anthropic,      (what the model    registry -> validate
-   OpenAI-compat,   sees this turn;   -> policy -> execute
-   Fake)            budget/compact)   (timeouts, effects)
-        |                                 |
-   Provider HTTP                  Python tools · MCP servers
-        \_____________   ________________/
-                      \ /
-                  Event Log  <-- single source of truth
-                      |
-          +-----------+------------+
-          |                        |
-    Event Store               Projections
-    (memory, SQLite)          (message history, run state,
-                               checkpoints, traces, cost)
+ Layer 4  PUBLIC API        Agent · tool · session · Allow/Deny/RequireApproval …
+             |
+ Layer 3  ORCHESTRATION     session   (run keys, session budget, principal)
+             |
+                            runtime   (the agent loop: steps, budgets, interrupts, hooks)
+             |
+ Layer 2  CORE ENGINES      tools     context     ledger
+                            (registry (what the   (event log, redaction,
+                             + harness) model sees) projections, resume)
+             |
+ Layer 1  PORTS             ToolSource · Policy · CredentialProvider · ModelAdapter ·
+ (interfaces)               ContextStrategy · Retriever · MemoryStore · EventStore ·
+                            Redactor · Hooks
+             |
+ Layer 0  TYPES             messages & content blocks · events · Principal · budgets · errors
+
+ ───────────────── adapters (implement ports; plugged in at the public API) ─────────────────
+ models: fake, anthropic, openai_compat     event stores: sqlite (default), in-memory
+ tool sources: python functions, mcp        knowledge extra: chroma retriever, text-to-SQL tool
 ```
 
-## Core decisions
+**Dependency rule:** a layer may only import from layers below it. Core engines and orchestration (layers 2–3) use only `types` and `ports`, never a specific adapter. Adapters use only `types` and `ports`. Only the public API wires adapters into the core as defaults.
 
-These are made early because they are expensive to retrofit. Each will get an ADR.
+## Modules
 
-| # | Decision | ADR |
+| Module | Owns | Does *not* own |
 |---|---|---|
-| 1 | **Event-sourced runtime.** Every model call, tool request/result, approval and error is an immutable, typed event in an append-only log. Message history, run state and checkpoints are *projections* of that log. | [0001](docs/adr/0001-content-and-event-model.md) |
-| 2 | **Provider-neutral content model.** Messages are made of content blocks (`text`, `tool_use`, `tool_result`, `reasoning`, `image`) with stable call IDs, parallel tool calls, stop reasons and usage. Adapters translate; they never leak provider shapes. | 0001 |
-| 3 | **Async-first, with streaming from day one.** The adapter interface streams; non-streaming is a convenience on top. | planned |
-| 4 | **Tool effect classes.** `read_only`, `idempotent`, `side_effecting`. Side-effecting calls write an `intent` event with an idempotency key before execution. On resume, an intent without a result is *reconciled or escalated*, never re-run blindly. | planned |
-| 5 | **Interrupts are first-class.** Approval and other waits suspend the run to the store; `resume()` continues from the log. | planned |
-| 6 | **Policy lives outside the model.** A trusted hook authorizes every tool call before execution. | planned |
-| 7 | **Budgets & cancellation.** Max steps, tokens, cost, wall time; per-tool timeouts. | planned |
-| 8 | **One extension point: hooks.** Tracing, policy, logging and evals plug in through the same hook interface. | planned |
-| 9 | **Small public API, semver.** Public = re-exported from `agentreins`. Everything else is `agentreins._internal`. | planned |
+| **types** | Shared data shapes (messages, events, Principal, budgets, errors). Pure data, no logic | Behaviour |
+| **ports** | The ten extension interfaces | Implementations |
+| **tools** | The only path to run a tool: find → validate → policy → approval → credentials → execute → result | Deciding *when* to call a tool |
+| **context** | Building what the model sees each turn: history, strategy, retrieved documents, memories | Storing history |
+| **ledger** | Appending events (after redaction); rebuilding message history and run state from events; finding unfinished work on resume | Deciding what to do about unfinished work |
+| **runtime** | One agent run: the loop, budgets, pausing for approval, calling hooks | Combining several runs |
+| **session** | Grouping runs: run keys, session budget, shared principal | The loop itself |
+| **public API** | The small, stable surface users import; wires default adapters | Logic |
 
-## Responsibilities and trust boundaries
+## Project structure
 
-- **Model Adapter.** Translates between the neutral content model and one provider's wire format. Normalizes stop reasons, usage and errors. Untrusted output: whatever the model returns is a *request*, not an action.
-- **Agent Runtime.** Owns the loop: call model → record events → dispatch tool calls → decide whether to continue. Enforces budgets, handles cancellation and interrupts.
-- **Tool Harness.** The trust boundary. Only registered tools run. Arguments are validated against the tool's schema (pydantic). Policy hooks authorize. Execution has a timeout. Failures become structured `tool_result` errors returned to the model, not crashes.
-- **Context Manager.** Decides what the model sees each turn under a token budget. Must keep each `tool_use` paired with its `tool_result`. Pluggable strategy (truncate, summarize).
-- **Event Store.** Append-only, ordered per run. In-memory and SQLite in 1.0; the interface allows others.
-- **Projections.** Pure functions from events to views. Message history for the model is one projection; it is *not* the persisted state.
+```text
+agentreins/
+│
+├── src/agentreins/
+│   ├── __init__.py              # PUBLIC API: the only thing users import from.
+│   │                            #   Re-exports Agent, tool, session, Allow/Deny/RequireApproval…
+│   ├── py.typed
+│   │
+│   ├── types/                   # ① VOCABULARY: pure data shapes, no logic
+│   │   ├── content.py           #   Message, TextBlock, ToolUseBlock, ToolResultBlock, ReasoningBlock, ImageBlock
+│   │   ├── events.py            #   Event envelope + every event type (run.started, tool.call.requested…)
+│   │   ├── tools.py             #   ToolSpec, ToolCall, ToolResult, Effect (read_only / idempotent / side_effecting)
+│   │   ├── policy.py            #   Allow, Deny, RequireApproval
+│   │   ├── identity.py          #   Principal
+│   │   ├── budget.py            #   Budget, Usage
+│   │   └── errors.py            #   agentreins exception hierarchy
+│   │
+│   ├── ports/                   # ② SOCKETS: the 10 extension interfaces, no implementations
+│   │   ├── model.py             #   ModelAdapter
+│   │   ├── tool_source.py       #   ToolSource
+│   │   ├── policy.py            #   Policy
+│   │   ├── credentials.py       #   CredentialProvider
+│   │   ├── context.py           #   ContextStrategy, Retriever
+│   │   ├── memory.py            #   MemoryStore
+│   │   ├── event_store.py       #   EventStore
+│   │   ├── redactor.py          #   Redactor
+│   │   └── hooks.py             #   Hooks
+│   │
+│   ├── tools/                   # ③ CORE ENGINES (hand-written by the maintainer)
+│   │   ├── decorator.py         #   @tool: Python function → ToolSpec (schema from type hints)
+│   │   ├── registry.py          #   which tools exist for this agent
+│   │   └── harness.py           #   validate → policy → approval → credentials → execute → result
+│   ├── context/
+│   │   └── manager.py           #   builds what the model sees each turn
+│   ├── ledger/
+│   │   ├── ledger.py            #   append events (redacted first), read events
+│   │   ├── projections.py       #   events → message history, run state
+│   │   └── recovery.py          #   on resume: find unfinished work
+│   ├── runtime/
+│   │   ├── agent.py             #   Agent definition (prompt, tools, model, output type) + fingerprint
+│   │   ├── loop.py              #   one run: model → tools → model … with budgets
+│   │   ├── interrupts.py        #   pause for approval, resume
+│   │   └── hooks.py             #   calls registered hooks at each step
+│   ├── session/
+│   │   └── session.py           #   run keys, session budget, shared principal
+│   │
+│   └── adapters/                # ④ PLUGS: implementations of the ports
+│       ├── models/              #   fake.py · anthropic.py · openai_compat.py
+│       ├── event_stores/        #   sqlite.py (default) · in_memory.py
+│       ├── memory_stores/       #   in_memory.py (reference only)
+│       ├── tool_sources/        #   python.py · mcp.py
+│       ├── policies/            #   default.py (registered tools only) · rules.py
+│       ├── credentials/         #   env.py
+│       ├── redactors/           #   passthrough.py · secrets.py
+│       ├── context_strategies/  #   keep_all.py · truncate.py
+│       └── knowledge/           #   optional extra agentreins[knowledge]:
+│                                #     chroma_retriever.py · text_to_sql_tool.py
+│
+├── tests/
+│   ├── unit/                    # mirrors src/: one folder per module
+│   ├── contract/                # one test suite per port, run against every adapter of it
+│   │                            #   (third-party plug-in authors reuse these too)
+│   ├── recorded/                # saved real provider responses, replayed offline
+│   ├── failure/                 # crash injection: kill mid-tool / mid-model-call, then resume
+│   └── live/                    # real API calls: opt-in, never in normal CI
+│
+├── examples/
+│   ├── 01_hello_tool.py         # small, numbered, each runs offline with the fake model
+│   ├── 02_approval.py
+│   ├── …
+│   └── supply_chain/            # reference app: simulated ERP, approval, crash recovery
+│
+├── docs/
+│   ├── REQUIREMENTS.md          # step 1
+│   ├── adr/                     # one file per design decision
+│   └── dev/                     # learning protocol, devlog
+│
+├── .github/                     # CI, release, issue/PR templates
+├── pyproject.toml · README.md · ARCHITECTURE.md · ROADMAP.md
+└── CHANGELOG.md · CONTRIBUTING.md · SECURITY.md · LICENSE · CLAUDE.md
+```
 
-## Dependency policy
+## Open items
 
-- **Core:** Python ≥ 3.11 standard library + `pydantic` v2. Nothing else.
-- **Extras:** `agentreins[providers]` adds `httpx` for real model adapters. Future extras (`otel`, `mcp`) must stay optional.
-- **No vendor SDKs.** Adapters implement provider HTTP APIs directly. This keeps the core stable when vendors change their SDKs and keeps the wire protocol visible.
-
-## Out of scope for 1.0
-
-Workflow/graph engine, planner, multi-agent orchestration, long-term memory, A2A, distributed execution, hosted service. Revisit after 1.0.
-
-## Open questions
-
-Tracked as ADRs once they are being decided:
-
-- Exact event envelope (IDs, ordering, schema versioning) → ADR-0001
-- Reconciliation contract for side-effecting tools after a crash
-- Cancellation semantics while a tool is running
-- Which errors trigger deterministic retry, model replan, or human escalation
-- How user identity propagates to tools and policy
+- Step 3: define each port's interface (signatures only).
+- Can any of the ten ports be merged (e.g. redactor as a hook)? Decide in step 3.
+- ADR-0001 (content and event model) is parked until the `types` module is built.

@@ -49,7 +49,8 @@ result = await agent.run("How many units of A-12 do we have?")
 
 | Document | Purpose |
 |---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Components, trust boundaries, core decisions |
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | What agentreins must do, decisions, guarantees |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Module map and project structure |
 | [docs/adr/](docs/adr/) | Architecture Decision Records, one per decision |
 | [ROADMAP.md](ROADMAP.md) | Release plan |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
