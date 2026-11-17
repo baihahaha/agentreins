@@ -50,6 +50,18 @@ Bins: **Core** = built in and always present. **Extension point** = interface de
 | G7 | Observability | Core hooks + optional extra | **Hooks**; OpenTelemetry exporter as an optional extra | 1.0-rc |
 | G8 | Change control | Core | Every run records a fingerprint of the agent definition (prompt, tool schemas, model) | v0.3 |
 
+### Governance principle: exactly three control points
+
+agentreins governs in exactly three places, and nowhere else:
+
+| What agentreins controls | Where | Who decides |
+|---|---|---|
+| 1. What the agent **does** (tool calls) | Tool harness → **Policy** | The policy (may delegate to a central policy engine) |
+| 2. What goes **into the model and into storage** | Event log → **Redactor** | The redactor |
+| 3. **Which identity** is used to reach data | **CredentialProvider** | The data system itself, under its own permissions |
+
+Everything else, in particular *who may see which data*, belongs to the enterprise's own systems, not to agentreins. Modules other than these three add no permission logic of their own. Every new design decision is checked against this principle.
+
 ### Identity and enterprise platforms
 
 agentreins is the **enforcement point**, never the source of truth. It owns no identity, permission or business data.
@@ -68,6 +80,8 @@ agentreins is the **enforcement point**, never the source of truth. It owns no i
 | D4 | **Policy answers `Allow`, `Deny(reason)` or `RequireApproval(reason)`.** Policy never modifies arguments. Deny returns an error result to the model; RequireApproval pauses and persists the run. | One decision point for authorization and approval. Not modifying arguments keeps the model's view and the audit trail truthful. |
 | D5 | **SQLite is the default event store**; in-memory is opt-in (tests, experiments). | Guarantee #1 must hold out of the box. SQLite is in the Python standard library; the cost (a local file, about 1 ms per step) is negligible next to model calls. |
 | D6 | **Knowledge sources ship as a first-party optional extra, `agentreins[knowledge]`:** a Chroma vector retriever, and a text-to-SQL **tool** over SQLite. Both live in this repo, are tested in CI and used in examples, but are not part of the core install. A **retriever** means vector or keyword search only. Text-to-SQL is a governed **tool**: read-only connection, allow-listed tables, row limits, every query logged. | Users can try retrieval and structured-data queries out of the box, while the core install stays light (dependency policy, guarantee #7). Model-written SQL is an action the agent decides to take, so it goes through the tool harness (policy, approval, audit; guarantee #2) rather than being injected automatically. |
+
+| D7 | **All governance can be lifted for testing, with one explicit switch** (`agentreins.testing.no_governance()`). It plugs in permissive implementations of the three control points: allow-all policy (no approvals), pass-through redactor, static test credentials. Never the default. Every run started this way records `governance_lifted: true` in its `run.started` event and logs a warning. The event log, budgets and validation are **not** governance and stay on (tests that need speed use the in-memory event store). | Tests and experiments must be able to exercise agent behaviour without approvals or credentials. Making it one named switch in a `testing` module, recorded in the log, means it cannot be enabled by accident or go unnoticed in an audit. |
 
 ## 6. Guarantees (ranked: higher wins on conflict)
 
