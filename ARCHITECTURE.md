@@ -1,6 +1,6 @@
 # Architecture
 
-- **Status:** step 2 (module map and project structure) agreed 2026-11-16. Step 3 (interface contracts) is next.
+- **Status:** step 2 (module map and project structure) agreed 2026-11-16. Step 3 (interface contracts) agreed 2026-11-17: one ADR per port, [ADR-0002](docs/adr/0002-model-adapter-port.md) to [ADR-0011](docs/adr/0011-memory-store-port.md). Step 4 (repo layout with stubs) is next.
 - **Requirements and decisions:** [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). This file describes *how* the code is organized to meet them.
 - **Detailed design of each module:** ADRs in [docs/adr/](docs/adr/), written when that module is built.
 
@@ -131,6 +131,6 @@ agentreins/
 
 ## Open items
 
-- Step 3: define each port's interface (signatures only).
-- Can any of the ten ports be merged (e.g. redactor as a hook)? Decide in step 3.
+- Step 4: create the package layout with stubs.
+- Port merging was considered in step 3: none merged (redactor stays separate from hooks, ADR-0006).
 - ADR-0001 (content and event model) is parked until the `types` module is built.
