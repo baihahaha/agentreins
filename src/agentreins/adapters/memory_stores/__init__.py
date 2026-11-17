@@ -1,0 +1,1 @@
+"""Adapters: memory_stores."""

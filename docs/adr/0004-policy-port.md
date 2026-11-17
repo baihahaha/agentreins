@@ -15,7 +15,9 @@ Policy decides whether a principal may call a tool with given arguments. agentre
 ```python
 class Policy(Protocol):
     async def decide(self, request: PolicyRequest) -> Allow | Deny | RequireApproval: ...
-    async def visible_tools(self, principal: Principal, tools: list[ToolSpec]) -> list[ToolSpec]: ...  # optional
+    async def visible_tools(
+        self, principal: Principal, tools: list[ToolSpec]
+    ) -> list[ToolSpec]: ...  # optional
 ```
 
 - `decide()` is called for **every** tool call. `PolicyRequest` holds the principal, the tool spec (including effect class), the **validated** arguments, the run and session IDs, and the budget used so far.

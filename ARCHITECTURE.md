@@ -30,7 +30,7 @@ The core logic never talks to the outside world directly. It talks only to **por
  tool sources: python functions, mcp        knowledge extra: chroma retriever, text-to-SQL tool
 ```
 
-**Dependency rule:** a layer may only import from layers below it. Core engines and orchestration (layers 2–3) use only `types` and `ports`, never a specific adapter. Adapters use only `types` and `ports`. Only the public API wires adapters into the core as defaults.
+**Dependency rule:** a layer may only import from layers below it (enforced by `tests/unit/test_architecture.py`). Core engines and orchestration (layers 2–3) use only `types` and `ports`, never a specific adapter. Adapters use only `types` and `ports`. Only the public API wires adapters into the core as defaults.
 
 ## Modules
 
@@ -57,10 +57,12 @@ agentreins/
 │   │
 │   ├── types/                   # ① VOCABULARY: pure data shapes, no logic
 │   │   ├── content.py           #   Message, TextBlock, ToolUseBlock, ToolResultBlock, ReasoningBlock, ImageBlock
+│   │   ├── model.py             #   ModelRequest, ModelResponse, ModelStreamEvent, ModelCapabilities
 │   │   ├── events.py            #   Event envelope + every event type (run.started, tool.call.requested…)
 │   │   ├── tools.py             #   ToolSpec, ToolCall, ToolResult, Effect (read_only / idempotent / side_effecting)
 │   │   ├── policy.py            #   Allow, Deny, RequireApproval
-│   │   ├── identity.py          #   Principal
+│   │   ├── identity.py          #   Principal, Credentials
+│   │   ├── knowledge.py         #   Document, MemoryItem
 │   │   ├── budget.py            #   Budget, Usage
 │   │   └── errors.py            #   agentreins exception hierarchy
 │   │
@@ -92,6 +94,8 @@ agentreins/
 │   │   └── hooks.py             #   calls registered hooks at each step
 │   ├── session/
 │   │   └── session.py           #   run keys, session budget, shared principal
+│   │
+│   ├── testing/                 #   no_governance() and other test helpers (REQUIREMENTS D7)
 │   │
 │   └── adapters/                # ④ PLUGS: implementations of the ports
 │       ├── models/              #   fake.py · anthropic.py · openai_compat.py
