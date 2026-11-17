@@ -29,7 +29,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'providers'", specifier = ">=0.27,<1" },
     { name = "pydantic", specifier = ">=2.6,<3" },
 ]
-provides-extras = ["providers", "sqlite"]
+provides-extras = ["providers"]
 
 [package.metadata.requires-dev]
 dev = [

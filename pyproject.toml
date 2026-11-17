@@ -25,7 +25,6 @@ dependencies = ["pydantic>=2.6,<3"]
 [project.optional-dependencies]
 # Provider adapters speak raw HTTP; no vendor SDKs.
 providers = ["httpx>=0.27,<1"]
-sqlite = []
 
 [project.urls]
 Homepage = "https://github.com/baihahaha/agentreins"
