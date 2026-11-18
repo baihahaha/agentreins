@@ -1,6 +1,6 @@
 """Policy types (ADR-0004).
 
-TODO(maintainer): define fields; Deny and RequireApproval carry a reason.
+TODO(M1): define fields; Deny and RequireApproval carry a reason.
 """
 
 from typing import TypeAlias

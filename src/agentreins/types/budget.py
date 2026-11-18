@@ -1,6 +1,6 @@
 """Budget and usage types (REQUIREMENTS G5).
 
-TODO(maintainer): define fields.
+TODO(M1): define fields.
 """
 
 from pydantic import BaseModel

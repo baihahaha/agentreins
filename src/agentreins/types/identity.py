@@ -1,6 +1,6 @@
 """Identity types (REQUIREMENTS G1, ADR-0008).
 
-TODO(maintainer): Credentials must refuse to be printed, serialized or stored (ADR-0008 D2).
+TODO(M1): Credentials must refuse to be printed, serialized or stored (ADR-0008 D2).
 """
 
 from pydantic import BaseModel

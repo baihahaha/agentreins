@@ -1,6 +1,6 @@
 """Tool types (ADR-0003).
 
-TODO(maintainer): define Effect (read_only / idempotent / side_effecting) and the fields.
+TODO(M1): define Effect (read_only / idempotent / side_effecting) and the fields.
 """
 
 from pydantic import BaseModel
