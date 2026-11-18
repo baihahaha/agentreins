@@ -114,3 +114,7 @@ def test_tool_context_holds_credentials_without_exposing_them() -> None:
     )
     assert SECRET not in repr(context)
     assert context.cancellation.is_set() is False
+
+
+def test_tool_spec_default_timeout_is_300_seconds() -> None:
+    assert _spec().timeout_seconds == 300.0

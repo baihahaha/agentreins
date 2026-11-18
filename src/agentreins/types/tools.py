@@ -26,7 +26,7 @@ class ToolSpec(FrozenModel):
     description: str
     input_schema: dict[str, JsonValue]
     effect: Effect
-    timeout_seconds: float = Field(default=30.0, gt=0)
+    timeout_seconds: float = Field(default=300.0, gt=0)
     requires: list[str] = Field(default_factory=list[str])
     """Credential needs, e.g. ``["erp"]`` (ADR-0008 D1)."""
 
