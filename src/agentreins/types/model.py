@@ -1,6 +1,6 @@
 """Model request/response types (ADR-0002 D4, D7, D8).
 
-TODO(maintainer): define fields as listed in ADR-0002.
+TODO(M1): define fields as listed in ADR-0002.
 """
 
 from pydantic import BaseModel

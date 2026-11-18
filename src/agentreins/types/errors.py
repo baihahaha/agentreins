@@ -1,6 +1,6 @@
 """agentreins exceptions.
 
-TODO(maintainer): define the hierarchy, including the normalized model errors
+TODO(M1): define the hierarchy, including the normalized model errors
 (ADR-0002 D5) and ConflictError (ADR-0005 D2).
 """
 

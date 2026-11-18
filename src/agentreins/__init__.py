@@ -1,7 +1,7 @@
 """agentreins: a small, durable, provider-neutral agent runtime.
 
-The public API is whatever is re-exported from this module. Anything under
-``agentreins._internal`` may change without notice.
+The public API is whatever is re-exported from this module. Anything imported
+from a submodule directly may change without notice.
 """
 
 __version__ = "0.1.0.dev0"

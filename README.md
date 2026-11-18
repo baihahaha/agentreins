@@ -34,16 +34,16 @@ def get_inventory(sku: str) -> int:
     ...
 
 
-agent = Agent(model="anthropic:claude-sonnet-5-5", tools=[get_inventory])
+agent = Agent(model="openai:gpt-4o-mini", tools=[get_inventory])
 result = await agent.run("How many units of A-12 do we have?")
 ```
 
 ## Non-goals (for 1.0)
 
 - Graph / workflow DSLs, planners, multi-agent orchestration frameworks (an agent can be used as a tool)
-- Long-term memory / vector stores
+- Building memory or vector database engines: agentreins defines the `MemoryStore` and `Retriever` interfaces; storage is a plug-in. A Chroma retriever ships as the optional extra `agentreins[knowledge]`
 - Hosting, UI, or a cloud platform
-- Wrapping every model provider: we support Anthropic and OpenAI-compatible APIs, which covers OpenAI, Kimi, vLLM, Ollama and others
+- Wrapping every model provider: we support OpenAI-compatible APIs (OpenAI, Kimi, vLLM, Ollama and others) first, then Anthropic
 
 ## Project docs
 

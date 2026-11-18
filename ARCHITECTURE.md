@@ -1,6 +1,6 @@
 # Architecture
 
-- **Status:** step 2 (module map and project structure) agreed 2026-11-16. Step 3 (interface contracts) agreed 2026-11-17: one ADR per port, [ADR-0002](docs/adr/0002-model-adapter-port.md) to [ADR-0011](docs/adr/0011-memory-store-port.md). Step 4 (repo layout with stubs) is next.
+- **Status:** step 2 (module map and project structure) agreed 2026-11-16. Step 3 (interface contracts) agreed 2026-11-17: one ADR per port, [ADR-0002](docs/adr/0002-model-adapter-port.md) to [ADR-0011](docs/adr/0011-memory-store-port.md). Step 4 (repo layout with stubs) done 2026-11-17. Step 5 (filling modules) follows the milestones in [ROADMAP.md](ROADMAP.md).
 - **Requirements and decisions:** [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). This file describes *how* the code is organized to meet them.
 - **Detailed design of each module:** ADRs in [docs/adr/](docs/adr/), written when that module is built.
 
@@ -77,7 +77,7 @@ agentreins/
 │   │   ├── redactor.py          #   Redactor
 │   │   └── hooks.py             #   Hooks
 │   │
-│   ├── tools/                   # ③ CORE ENGINES (hand-written by the maintainer)
+│   ├── tools/                   # ③ CORE ENGINES (the logic; uses only ① and ②)
 │   │   ├── decorator.py         #   @tool: Python function → ToolSpec (schema from type hints)
 │   │   ├── registry.py          #   which tools exist for this agent
 │   │   └── harness.py           #   validate → policy → approval → credentials → execute → result
@@ -102,7 +102,7 @@ agentreins/
 │       ├── event_stores/        #   sqlite.py (default) · in_memory.py
 │       ├── memory_stores/       #   in_memory.py (reference only)
 │       ├── tool_sources/        #   python.py · mcp.py
-│       ├── policies/            #   default.py (registered tools only) · rules.py
+│       ├── policies/            #   default.py (reads allowed, side effects need approval) · rules.py
 │       ├── credentials/         #   env.py
 │       ├── redactors/           #   passthrough.py · secrets.py
 │       ├── context_strategies/  #   keep_all.py · truncate.py
@@ -135,6 +135,5 @@ agentreins/
 
 ## Open items
 
-- Step 4: create the package layout with stubs.
+- ADR-0001 (content and event model): three open questions to settle at the start of M1, before the `types` module is built.
 - Port merging was considered in step 3: none merged (redactor stays separate from hooks, ADR-0006).
-- ADR-0001 (content and event model) is parked until the `types` module is built.
