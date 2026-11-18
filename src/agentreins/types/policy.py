@@ -1,27 +1,45 @@
-"""Policy types (ADR-0004).
+"""Policy types (ADR-0004)."""
 
-TODO(M1): define fields; Deny and RequireApproval carry a reason.
-"""
+from typing import Annotated, Literal, TypeAlias
 
-from typing import TypeAlias
+from pydantic import Field, JsonValue
 
-from pydantic import BaseModel
-
-
-class PolicyRequest(BaseModel):
-    """principal, tool spec, validated arguments, run/session IDs, budget used. Placeholder."""
+from agentreins.types._base import FrozenModel
+from agentreins.types.budget import Usage
+from agentreins.types.identity import Principal
+from agentreins.types.tools import ToolSpec
 
 
-class Allow(BaseModel):
-    """The tool call may run. Placeholder."""
+class PolicyRequest(FrozenModel):
+    """Everything a policy may base its decision on. Arguments are already validated."""
+
+    principal: Principal
+    tool: ToolSpec
+    arguments: dict[str, JsonValue]
+    run_id: str
+    session_id: str | None = None
+    usage: Usage = Field(default_factory=Usage)
+    """Usage so far in the run, for budget-aware rules."""
 
 
-class Deny(BaseModel):
-    """The tool call is refused; the model is told why. Placeholder."""
+class Allow(FrozenModel):
+    """The tool call may run."""
+
+    type: Literal["allow"] = "allow"
 
 
-class RequireApproval(BaseModel):
-    """The run pauses until a human approves or rejects. Placeholder."""
+class Deny(FrozenModel):
+    """The tool call is refused; the model is told ``reason``."""
+
+    type: Literal["deny"] = "deny"
+    reason: str
 
 
-PolicyDecision: TypeAlias = Allow | Deny | RequireApproval
+class RequireApproval(FrozenModel):
+    """The run pauses until a human approves or rejects."""
+
+    type: Literal["require_approval"] = "require_approval"
+    reason: str
+
+
+PolicyDecision: TypeAlias = Annotated[Allow | Deny | RequireApproval, Field(discriminator="type")]

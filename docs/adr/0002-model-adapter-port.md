@@ -65,7 +65,7 @@ Adapters translate provider errors into one list, each flagged retryable or not:
 |---|---|
 | `RateLimited` (with optional retry-after) | yes |
 | `ProviderUnavailable` | yes |
-| `Timeout` | yes |
+| `ModelTimeout` (named to avoid confusion with Python's `TimeoutError`) | yes |
 | `ContextTooLong` | no (context manager must shrink) |
 | `AuthFailed` | no |
 | `BadRequest` | no |

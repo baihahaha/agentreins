@@ -1,23 +1,106 @@
-"""Model request/response types (ADR-0002 D4, D7, D8).
+"""Model request/response types (ADR-0002 D4, D7, D8)."""
 
-TODO(M1): define fields as listed in ADR-0002.
-"""
+from typing import Annotated, Literal, Self, TypeAlias
 
-from pydantic import BaseModel
+from pydantic import Field, JsonValue, model_validator
 
+from agentreins.types._base import FrozenModel
+from agentreins.types.budget import Usage
+from agentreins.types.content import Message
+from agentreins.types.tools import ToolSpec
 
-class ModelRequest(BaseModel):
-    """messages, system, tools, tool_choice, settings, provider_options. Placeholder."""
-
-
-class ModelResponse(BaseModel):
-    """message, stop_reason, usage, model, request_id. Placeholder."""
+StopReason: TypeAlias = Literal["end_turn", "tool_use", "max_tokens", "stop_sequence", "refusal"]
 
 
-class ModelStreamEvent(BaseModel):
-    """TextDelta / ToolUseStart / ToolArgsDelta / ReasoningDelta / UsageUpdate /
-    final ModelResponse. Placeholder: likely becomes a union of event classes."""
+class ForceTool(FrozenModel):
+    """``tool_choice`` value that forces the model to call one specific tool."""
+
+    name: str
 
 
-class ModelCapabilities(BaseModel):
-    """images, parallel tool calls, native structured output, max context. Placeholder."""
+ToolChoice: TypeAlias = Literal["auto", "none", "required"] | ForceTool
+
+
+class ModelRequest(FrozenModel):
+    """Everything an adapter needs for one model call."""
+
+    model: str
+    messages: list[Message]
+    system: str | None = None
+    tools: list[ToolSpec] = Field(default_factory=list[ToolSpec])
+    tool_choice: ToolChoice = "auto"
+    max_tokens: int | None = Field(default=None, gt=0)
+    temperature: float | None = Field(default=None, ge=0)
+    stop: list[str] = Field(default_factory=list[str])
+    provider_options: dict[str, JsonValue] = Field(default_factory=dict[str, JsonValue])
+    """Provider-specific settings, passed to the adapter untouched (ADR-0002 D4)."""
+
+
+class ModelResponse(FrozenModel):
+    """One complete model reply."""
+
+    message: Message
+    stop_reason: StopReason
+    usage: Usage
+    model: str
+    """The model that actually answered (may differ from the requested alias)."""
+    request_id: str | None = None
+
+    @model_validator(mode="after")
+    def _reply_is_assistant(self) -> Self:
+        if self.message.role != "assistant":
+            raise ValueError("a ModelResponse message must have role 'assistant'")
+        return self
+
+
+class ModelCapabilities(FrozenModel):
+    """What an adapter supports; the core checks these before sending (ADR-0002 D8)."""
+
+    max_context_tokens: int = Field(gt=0)
+    images: bool = False
+    parallel_tool_calls: bool = True
+    native_structured_output: bool = False
+
+
+# --- stream events (ADR-0002 D7) ---------------------------------------------------
+
+
+class TextDelta(FrozenModel):
+    type: Literal["text_delta"] = "text_delta"
+    text: str
+
+
+class ToolUseStart(FrozenModel):
+    type: Literal["tool_use_start"] = "tool_use_start"
+    id: str
+    name: str
+
+
+class ToolArgsDelta(FrozenModel):
+    type: Literal["tool_args_delta"] = "tool_args_delta"
+    id: str
+    delta: str
+    """A fragment of the arguments' JSON text."""
+
+
+class ReasoningDelta(FrozenModel):
+    type: Literal["reasoning_delta"] = "reasoning_delta"
+    text: str
+
+
+class UsageUpdate(FrozenModel):
+    type: Literal["usage_update"] = "usage_update"
+    usage: Usage
+
+
+class ResponseComplete(FrozenModel):
+    """Always the last stream event: the complete response."""
+
+    type: Literal["response_complete"] = "response_complete"
+    response: ModelResponse
+
+
+ModelStreamEvent: TypeAlias = Annotated[
+    TextDelta | ToolUseStart | ToolArgsDelta | ReasoningDelta | UsageUpdate | ResponseComplete,
+    Field(discriminator="type"),
+]
