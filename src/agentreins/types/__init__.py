@@ -1,5 +1,5 @@
 """Types: the shared vocabulary. Pure data, no logic.
 
-TODO(M1): every class in this package is an empty placeholder so that the
-ports can refer to it. Fields are defined in milestone M1, following the linked ADRs.
+Every other layer depends on this package; it depends on nothing but stdlib and
+pydantic. Fields follow the linked ADRs (mainly ADR-0001 and ADR-0002).
 """
