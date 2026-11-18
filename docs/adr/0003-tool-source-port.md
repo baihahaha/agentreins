@@ -39,7 +39,7 @@ What a tool receives at runtime:
 | Field | Meaning |
 |---|---|
 | `principal` | Who the run acts for |
-| `credentials` | From the CredentialProvider, scoped to the principal |
+| `credentials` | From the CredentialProvider, scoped to the principal: one entry per need declared in `ToolSpec.requires` (e.g. `{"erp": …}`) |
 | `run_id` | The current run |
 | `cancellation` | Signal that the run is being cancelled |
 | `idempotency_key` | Stable key for this tool call; the same across retries and resumes |
