@@ -64,9 +64,11 @@ ban-relative-imports = "all"
 include = ["src", "tests"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
+extraPaths = ["tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]  # shared test helpers, e.g. builders.py
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra --strict-markers"

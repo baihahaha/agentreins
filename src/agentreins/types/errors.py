@@ -70,3 +70,7 @@ class CapabilityError(AgentReinsError):
 
 class ConflictError(AgentReinsError):
     """Another writer appended to the run first (ADR-0005 D2)."""
+
+
+class RedactionError(AgentReinsError):
+    """The redactor failed or broke its contract; the event was not stored (ADR-0006 D3)."""
