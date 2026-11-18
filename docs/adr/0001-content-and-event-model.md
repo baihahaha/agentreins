@@ -1,7 +1,7 @@
 # ADR-0001: Content and event model
 
-- **Status:** proposed (draft by Claude Code, **maintainer to decide** the questions marked ❓)
-- **Date:** 2026-11-16
+- **Status:** accepted 2026-11-18. Provisional until M1/M2 exercise it; frozen at v0.5.
+- **Date:** 2026-11-16 (drafted), 2026-11-18 (accepted)
 
 ## Context
 
@@ -19,7 +19,7 @@ The prior draft asked "should the internal event log and provider message histor
 1. **Flat messages** (`role`, `content: str`, optional `tool_calls`), as in OpenAI Chat Completions. Simple, but it can't represent interleaved text + tool calls, reasoning blocks or images cleanly.
 2. **Content blocks** (`role`, `content: list[Block]`), as in Anthropic Messages. Strictly more expressive; OpenAI shapes map into it losslessly.
 
-### Proposed decision: content blocks
+### Decision: content blocks (confirmed in ADR-0002 D3)
 
 ```text
 Message   = { role: "user" | "assistant", content: list[Block] }
@@ -32,9 +32,9 @@ Block     = TextBlock      { text }
 
 - **System prompt** is a run-level field, not a message (providers disagree on where it goes).
 - **Tool result messages** use role `user` (Anthropic convention). The OpenAI adapter maps each `ToolResultBlock` to a `role: "tool"` message.
-- **`ToolUseBlock.id`** comes from the provider when it has one. ❓ Do we also mint our own `call_id` (ULID) and keep the provider ID as metadata? *Recommendation: yes.* Our ID is stable across providers and resumes, and it becomes the idempotency-key basis in a later ADR.
+- **`ToolUseBlock.id`** comes from the provider when it has one. **Decided:** agentreins also mints its own `call_id` and keeps the provider ID as metadata. Our ID is stable across providers and resumes, and it becomes the idempotency-key basis in a later ADR.
 - **`arguments`** are kept as the raw parsed dict. Validation happens in the tool harness, *not* here. If the provider returns unparseable JSON, the block holds the raw string and a parse-error flag so the harness can reply with a structured error.
-- **Stop reason** is normalized: `end_turn | tool_use | max_tokens | stop_sequence | refusal | error`.
+- **Stop reason** is normalized: `end_turn | tool_use | max_tokens | stop_sequence | refusal` (as in ADR-0002 D4; provider failures are raised as errors, not stop reasons).
 - **Usage** is normalized: `input_tokens, output_tokens, cache_read_tokens, cache_write_tokens`.
 
 ## Part 2: Event model
@@ -78,8 +78,8 @@ Later ADRs add `run.interrupted` / `run.resumed` (approvals) and `context.compac
 - **Events are immutable facts about the past.** Name them in past tense; never update or delete.
 - **Message history is a projection:** `project_messages(events) -> list[Message]`, a pure function. The context manager later chooses which part of that projection the model sees.
 - **Crash semantics fall out of the log:** `tool.call.started` without `completed`/`failed` = "unknown outcome". What to do then (re-run if idempotent, reconcile or escalate if side-effecting) is the subject of the durability ADR.
-- ❓ **Do we persist full model inputs?** *Recommendation: no* for v0.x. They are reproducible from prior events plus the run config, as long as projection is deterministic. Store a hash in `model.requested` so non-determinism is detectable.
-- ❓ **Streaming deltas:** do we record token deltas as events? *Recommendation: no.* Deltas go to hooks/subscribers only. Only the completed `model.responded` is durable.
+- **Full model inputs are not persisted (decided).** They are reproducible from prior events plus the run config, as long as projection is deterministic. Store a hash in `model.requested` so non-determinism is detectable.
+- **Streaming deltas are not recorded as events (decided; see ADR-0002 D7).** Deltas go to hooks/subscribers only. Only the completed `model.responded` is durable.
 
 ## Consequences
 
