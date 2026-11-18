@@ -80,7 +80,6 @@ agentreins is the **enforcement point**, never the source of truth. It owns no i
 | D4 | **Policy answers `Allow`, `Deny(reason)` or `RequireApproval(reason)`.** Policy never modifies arguments. Deny returns an error result to the model; RequireApproval pauses and persists the run. | One decision point for authorization and approval. Not modifying arguments keeps the model's view and the audit trail truthful. |
 | D5 | **SQLite is the default event store**; in-memory is opt-in (tests, experiments). | Guarantee #1 must hold out of the box. SQLite is in the Python standard library; the cost (a local file, about 1 ms per step) is negligible next to model calls. |
 | D6 | **Knowledge sources ship as a first-party optional extra, `agentreins[knowledge]`:** a Chroma vector retriever, and a text-to-SQL **tool** over SQLite. Both live in this repo, are tested in CI and used in examples, but are not part of the core install. A **retriever** means vector or keyword search only. Text-to-SQL is a governed **tool**: read-only connection, allow-listed tables, row limits, every query logged. | Users can try retrieval and structured-data queries out of the box, while the core install stays light (dependency policy, guarantee #7). Model-written SQL is an action the agent decides to take, so it goes through the tool harness (policy, approval, audit; guarantee #2) rather than being injected automatically. |
-
 | D7 | **All governance can be lifted for testing, with one explicit switch** (`agentreins.testing.no_governance()`). It plugs in permissive implementations of the three control points: allow-all policy (no approvals), pass-through redactor, static test credentials. Never the default. Every run started this way records `governance_lifted: true` in its `run.started` event and logs a warning. The event log, budgets and validation are **not** governance and stay on (tests that need speed use the in-memory event store). | Tests and experiments must be able to exercise agent behaviour without approvals or credentials. Making it one named switch in a `testing` module, recorded in the log, means it cannot be enabled by accident or go unnoticed in an audit. |
 
 ## 6. Guarantees (ranked: higher wins on conflict)
@@ -109,13 +108,13 @@ All interfaces are defined in step 3, before any module is built, so the runtime
 
 | Extension point | Default (phase) | Later |
 |---|---|---|
-| Model adapter | Fake (v0.1) | Anthropic, OpenAI-compatible (v0.2) |
+| Model adapter | Fake (v0.1) | OpenAI-compatible (v0.2), then Anthropic (ADR-0002 D2) |
 | Tool source | Python functions (v0.1) | MCP (v0.5) |
 | Context strategy | Keep all (v0.1) | Truncation (v0.5) |
 | Retriever | Chroma vector retriever, via `agentreins[knowledge]` | more plug-ins (pgvector, Elasticsearch, keyword search…) |
 | Memory store | in-memory reference | plug-ins |
 | Event store | SQLite default, in-memory opt-in (v0.1) | plug-ins (Postgres…) |
-| Policy | registered tools only (v0.1) | rules with three answers (v0.4) |
+| Policy | reads allowed, side-effecting tools require approval (ADR-0004 D4) | rules with three answers (v0.4) |
 | Credential provider | environment variables (v0.2) | platform plug-ins |
 | Redactor | pass-through (v0.1) | secret patterns (v0.3) |
 | Hooks | built in (v0.1) | OpenTelemetry exporter (1.0-rc) |
@@ -126,8 +125,8 @@ Authentication, identity providers and policy engines (connected to, not built);
 
 ## 9. Open items for later steps
 
-- Step 2: can any extension points be merged (e.g. redactor as a hook)?
-- Policy module: exact default policy for side-effecting tools before v0.4.
+- ~~Step 2: can any extension points be merged (e.g. redactor as a hook)?~~ Resolved in step 3: none merged (ADR-0006 D1).
+- ~~Policy module: exact default policy for side-effecting tools before v0.4.~~ Resolved: reads allowed, side-effecting tools require approval (ADR-0004 D4).
 - Composition module: first-class handoffs, or built from agent-as-tool?
 - Memory module: runtime-driven vs agent-driven saving.
 - Durability module: reconciliation contract for a side-effecting tool whose outcome is unknown after a crash.

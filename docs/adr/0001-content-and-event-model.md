@@ -96,10 +96,10 @@ Later ADRs add `run.interrupted` / `run.resumed` (approvals) and `context.compac
 
 Maintainer: verify these against current source/docs when you do the Compare step.
 
-## Your first hands-on task (after accepting this ADR)
+## Implementation (after accepting this ADR)
 
-Write in `src/agentreins/_internal/`:
-1. The content blocks and `Message` as pydantic models (discriminated union on `type`).
-2. The event envelope and the event types above.
-3. `project_messages(events)`.
+Built in milestone M1 (types) and M2 (projection), written by the coding agent and reviewed by the maintainer (see [LEARNING_PROTOCOL.md](../dev/LEARNING_PROTOCOL.md)):
+1. The content blocks and `Message` as pydantic models (discriminated union on `type`), in `src/agentreins/types/content.py`.
+2. The event envelope and the event types above, in `src/agentreins/types/events.py`.
+3. `project_messages(events)`, in `src/agentreins/ledger/projections.py`.
 4. Tests: round-trip JSON serialization of every event; projection of a run with two parallel tool calls; projection rejects a `tool_result` whose `tool_use_id` has no matching request.

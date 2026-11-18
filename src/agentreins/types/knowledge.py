@@ -1,6 +1,6 @@
 """Knowledge types: retrieved documents and memories (ADR-0010, ADR-0011).
 
-TODO(maintainer): define fields.
+TODO(M1): define fields.
 """
 
 from pydantic import BaseModel
