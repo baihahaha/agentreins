@@ -28,6 +28,22 @@ Rule: **cut scope, not reliability.**
 
 Releases: publish **0.1.0** to PyPI after M5; **v0.5 (API freeze)** after M7 plus MCP and the docs site.
 
+## CI hardening
+
+Done: dependencies installed with `uv sync --locked`, job timeouts, merged branches auto-deleted.
+
+**At the start of M4** (CI starts holding an API key):
+- [ ] Pin every third-party action to a commit SHA (with the version in a comment)
+- [ ] Add `.github/dependabot.yml` for `github-actions` and `uv`
+- [ ] Nightly scheduled workflow running `live` tests, with provider keys stored as repository secrets
+
+**Before publishing 0.1.0** (CI starts publishing to PyPI):
+- [ ] Release only tested code: run the checks in `release.yml`, or restrict `v*` tags to commits on `main`
+- [ ] Create the `pypi` environment with protection rules (only `v*` tags, required approval)
+- [ ] Register the PyPI trusted publisher for `release.yml`
+
+Optional: dependency caching (`setup-uv` with `enable-cache: true`).
+
 ## Later (post-1.0, unordered)
 
 Graph package on top of sessions; knowledge manager (metadata management); OpenTelemetry exporter; Postgres event store; platform plug-ins (e.g. `agentreins-aws`); handoffs.
