@@ -55,7 +55,14 @@ target-version = "py311"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "TID"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "TID", "D101", "D102", "D103"]
+
+[tool.ruff.lint.per-file-ignores]
+# Public classes, methods and functions need docstrings (they become the API reference).
+# Adapter methods implement a port method, which carries the docstring.
+"src/agentreins/adapters/**" = ["D102"]
+"tests/**" = ["D101", "D102", "D103"]
+"examples/**" = ["D101", "D102", "D103"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"

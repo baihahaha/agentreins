@@ -31,4 +31,6 @@ class ModelAdapter(Protocol):
 class TokenCounter(Protocol):
     """Optional: exact token counting. Without it the core estimates (D9)."""
 
-    async def count_tokens(self, request: ModelRequest) -> int: ...
+    async def count_tokens(self, request: ModelRequest) -> int:
+        """Return the exact number of input tokens ``request`` would use."""
+        ...

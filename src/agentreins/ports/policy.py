@@ -14,7 +14,9 @@ class Policy(Protocol):
     as Deny("policy unavailable") by default (D3).
     """
 
-    async def decide(self, request: PolicyRequest) -> PolicyDecision: ...
+    async def decide(self, request: PolicyRequest) -> PolicyDecision:
+        """Return Allow, Deny(reason) or RequireApproval(reason) for one tool call."""
+        ...
 
 
 @runtime_checkable
@@ -22,6 +24,6 @@ class ToolVisibility(Protocol):
     """Optional: hide tools a principal can never use. A convenience, not a security
     boundary: decide() is still called for every call (D1)."""
 
-    async def visible_tools(
-        self, principal: Principal, tools: list[ToolSpec]
-    ) -> list[ToolSpec]: ...
+    async def visible_tools(self, principal: Principal, tools: list[ToolSpec]) -> list[ToolSpec]:
+        """Return the subset of ``tools`` the model should see for ``principal``."""
+        ...

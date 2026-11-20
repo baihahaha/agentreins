@@ -14,11 +14,17 @@ class ToolSource(Protocol):
     (needed for MCP) is decided when the MCP source is built.
     """
 
-    async def list_tools(self) -> list[ToolSpec]: ...
+    async def list_tools(self) -> list[ToolSpec]:
+        """Return the specs of every tool this source offers."""
+        ...
 
-    async def call(self, call: ToolCall, context: ToolContext) -> ToolResult: ...
+    async def call(self, call: ToolCall, context: ToolContext) -> ToolResult:
+        """Run one tool call. Only the harness calls this, after validation and policy."""
+        ...
 
-    async def close(self) -> None: ...
+    async def close(self) -> None:
+        """Release resources (connections, subprocesses). Called once at shutdown."""
+        ...
 
 
 @runtime_checkable
@@ -30,6 +36,6 @@ class ArgumentValidator(Protocol):
     method get the harness's built-in basic check against ``input_schema``.
     """
 
-    async def validate(
-        self, name: str, arguments: dict[str, JsonValue]
-    ) -> dict[str, JsonValue]: ...
+    async def validate(self, name: str, arguments: dict[str, JsonValue]) -> dict[str, JsonValue]:
+        """Return the cleaned arguments, or raise ``InvalidToolArguments``."""
+        ...

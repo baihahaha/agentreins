@@ -5,6 +5,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ## [Unreleased]
 
 ### Added
+- Internals guide (`docs/internals/`): overview of one agent run, plus pages for types, storage and tools. Docstrings required on public code (ruff `D101`–`D103`); a test keeps doc links valid.
 - Tools (M3): `@tool` decorator and `PythonToolSource` (pydantic-validated arguments), `ToolRegistry`, `ToolHarness` (check -> prepare -> execute; policy timeout and fail-closed handling; credential scrubbing), built-in basic schema check, optional `ArgumentValidator` port, `DefaultPolicy`, `EnvCredentialProvider`; rejection reason `credentials_unavailable`.
 - Storage (M2): `Ledger` (redact, check, store), `project_messages` (events -> conversation), `SQLiteEventStore` (default, stdlib only, WAL + `synchronous=FULL`), `InMemoryEventStore`, `PassThroughRedactor`, `RedactionError`; contract tests for EventStore and Redactor.
 - `agentreins.types.events` (M1b): event envelope and the 11 event types (run, model, tool lifecycle), flat and discriminated on `type`; `RunRef`. ADR-0001 accepted.

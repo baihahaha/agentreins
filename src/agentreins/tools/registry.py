@@ -9,6 +9,8 @@ from agentreins.types.tools import ToolSpec
 
 @dataclass(frozen=True, slots=True)
 class RegisteredTool:
+    """One tool: its spec and the source that runs it."""
+
     spec: ToolSpec
     source: ToolSource
 
@@ -38,14 +40,17 @@ class ToolRegistry:
 
     @classmethod
     async def from_sources(cls, sources: Sequence[ToolSource]) -> "ToolRegistry":
+        """Ask every source for its tools and build the registry."""
         tools = [RegisteredTool(spec, s) for s in sources for spec in await s.list_tools()]
         return cls(tools, sources)
 
     def get(self, name: str) -> RegisteredTool | None:
+        """Return the tool with this name, or None."""
         return self._tools.get(name)
 
     @property
     def specs(self) -> list[ToolSpec]:
+        """Specs of every registered tool, in registration order."""
         return [t.spec for t in self._tools.values()]
 
     async def close(self) -> None:

@@ -9,4 +9,6 @@ class Redactor(Protocol):
     """Applied by the ledger before every append. May change content only; IDs,
     sequence number and type must stay unchanged. If it raises, the run fails (D3)."""
 
-    async def redact(self, event: Event) -> Event: ...
+    async def redact(self, event: Event) -> Event:
+        """Return ``event`` with secrets or personal data removed from its content."""
+        ...

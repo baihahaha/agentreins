@@ -11,4 +11,10 @@ class CredentialProvider(Protocol):
     Called on every tool call; the provider owns caching and expiry (D3).
     """
 
-    async def get(self, principal: Principal, name: str) -> Credentials: ...
+    async def get(self, principal: Principal, name: str) -> Credentials:
+        """Return the credential for need ``name``, scoped to ``principal``.
+
+        Raise an error (e.g. ``CredentialsUnavailable``) if none can be supplied; never
+        put the secret in the error message.
+        """
+        ...
