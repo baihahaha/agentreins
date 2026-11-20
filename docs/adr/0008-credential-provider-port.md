@@ -29,7 +29,7 @@ The provider is called on every tool call and owns caching and refresh. The core
 
 ### Default provider
 
-Reads environment variables. Every principal gets the **same** key: suitable for development only. Documentation states that production needs a per-principal provider (e.g. AWS STS role assumption, OAuth token exchange).
+Reads environment variables: need `erp` → `AGENTREINS_CRED_ERP` (prefix configurable; non-alphanumerics become `_`). Every principal gets the **same** key: suitable for development only. If a credential cannot be fetched, the call is rejected with reason `credentials_unavailable` and the tool never runs (decided 2026-11-20); the provider's error message is not shown to the model, in case it contains a secret. Documentation states that production needs a per-principal provider (e.g. AWS STS role assumption, OAuth token exchange).
 
 ## Comparison
 

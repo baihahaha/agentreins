@@ -78,9 +78,9 @@ agentreins/
 │   │   └── hooks.py             #   Hooks
 │   │
 │   ├── tools/                   # ③ CORE ENGINES (the logic; uses only ① and ②)
-│   │   ├── decorator.py         #   @tool: Python function → ToolSpec (schema from type hints)
 │   │   ├── registry.py          #   which tools exist for this agent
-│   │   └── harness.py           #   validate → policy → approval → credentials → execute → result
+│   │   ├── harness.py           #   validate → policy → approval → credentials → execute → result
+│   │   └── schema_check.py      #   basic argument check for sources that cannot validate
 │   ├── context/
 │   │   └── manager.py           #   builds what the model sees each turn
 │   ├── ledger/
@@ -101,7 +101,7 @@ agentreins/
 │       ├── models/              #   fake.py · anthropic.py · openai_compat.py
 │       ├── event_stores/        #   sqlite.py (default) · in_memory.py
 │       ├── memory_stores/       #   in_memory.py (reference only)
-│       ├── tool_sources/        #   python.py · mcp.py
+│       ├── tool_sources/        #   python.py (@tool decorator + source) · mcp.py
 │       ├── policies/            #   default.py (reads allowed, side effects need approval) · rules.py
 │       ├── credentials/         #   env.py
 │       ├── redactors/           #   passthrough.py · secrets.py

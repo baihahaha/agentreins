@@ -120,7 +120,9 @@ class ToolCallRequested(_EventBase):
     arguments: dict[str, JsonValue] = Field(default_factory=dict[str, JsonValue])
 
 
-ToolRejectionReason: TypeAlias = Literal["unknown_tool", "invalid_arguments", "policy_denied"]
+ToolRejectionReason: TypeAlias = Literal[
+    "unknown_tool", "invalid_arguments", "policy_denied", "credentials_unavailable"
+]
 
 
 class ToolCallRejected(_EventBase):
