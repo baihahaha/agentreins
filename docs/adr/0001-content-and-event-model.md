@@ -63,7 +63,7 @@ timestamp:      datetime (UTC, timezone-aware)
 | `model.responded` | step, `ModelResponse` (message, stop reason, usage, model, request id), latency | |
 | `model.failed` | step, attempt, error class, message, retryable flag | One per failed attempt |
 | `tool.call.requested` | call_id, name, arguments | One per `ToolUseBlock`; emitted from the model response |
-| `tool.call.rejected` | call_id, reason (`unknown_tool`, `invalid_arguments`, `policy_denied`), message for the model | Harness decision, never executed. Unparseable arguments count as `invalid_arguments` |
+| `tool.call.rejected` | call_id, reason (`unknown_tool`, `invalid_arguments`, `policy_denied`, `credentials_unavailable`), message for the model | Harness decision, never executed. Unparseable arguments count as `invalid_arguments`. `credentials_unavailable` added in M3 |
 | `tool.call.started` | call_id, effect class, idempotency key | **The intent record.** For side-effecting tools this is written *before* execution |
 | `tool.call.completed` | call_id, `ToolResult`, duration | The tool returned; its result may still be a handled error | |
 | `tool.call.failed` | call_id, error, timeout flag, duration | The tool raised or timed out |

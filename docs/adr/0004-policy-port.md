@@ -28,11 +28,11 @@ Alternatives rejected: yes/no only (no approval path); name-only rules (can't ex
 
 ### D2. Order in the harness
 
-Validate arguments → `decide()` → (approval if required) → execute. Policy always sees clean, typed values. No tool skips policy, read-only included, because reading can expose data too.
+Validate arguments → `decide()` → (approval if required) → credentials → execute. Policy always sees clean, typed values. No tool skips policy, read-only included, because reading can expose data too. See ADR-0003 D5 for how the harness enforces this order.
 
 ### D3. Policy failure is configurable; default Deny
 
-If `decide()` raises or times out, the default answer is `Deny("policy unavailable")`: the model is told, the event is logged, the run continues (bounded by budgets). Configurable alternative: fail the whole run. Never fail open.
+If `decide()` raises or times out (default limit 10 s, `policy_timeout`), the default answer is `Deny("policy unavailable")`: the model is told, the event is logged, the run continues (bounded by budgets). Configurable alternative: fail the whole run. Never fail open.
 
 ### D4. Default policy
 

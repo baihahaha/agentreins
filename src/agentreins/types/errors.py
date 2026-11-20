@@ -74,3 +74,18 @@ class ConflictError(AgentReinsError):
 
 class RedactionError(AgentReinsError):
     """The redactor failed or broke its contract; the event was not stored (ADR-0006 D3)."""
+
+
+# --- tool errors (ADR-0003, ADR-0004, ADR-0008) --------------------------------------
+
+
+class InvalidToolArguments(AgentReinsError):
+    """A tool source rejected the arguments; the message is shown to the model."""
+
+
+class CredentialsUnavailable(AgentReinsError):
+    """A CredentialProvider could not supply a credential. Never include the secret."""
+
+
+class PolicyUnavailable(AgentReinsError):
+    """The policy raised or timed out and the harness is set to fail the run (ADR-0004 D3)."""
