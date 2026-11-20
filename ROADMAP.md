@@ -28,6 +28,14 @@ Rule: **cut scope, not reliability.**
 
 Releases: publish **0.1.0** to PyPI after M5; **v0.5 (API freeze)** after M7 plus MCP and the docs site.
 
+## Documentation
+
+| When | What |
+|---|---|
+| Every milestone | Its page in [docs/internals/](docs/internals/README.md) (how the code works), in the same PR |
+| After M5 (0.1.0) | Docs site (mkdocs): API reference generated from docstrings, plus a quickstart |
+| M8 | User guide on the docs site: defining tools, policies, stores, deployment |
+
 ## CI hardening
 
 Done: dependencies installed with `uv sync --locked`, job timeouts, merged branches auto-deleted.

@@ -24,6 +24,8 @@ class ModelError(AgentReinsError):
 
 
 class RateLimited(ModelError):
+    """The provider is throttling us. Retry, after ``retry_after`` seconds if given."""
+
     retryable = True
 
     def __init__(
@@ -40,6 +42,8 @@ class RateLimited(ModelError):
 
 
 class ProviderUnavailable(ModelError):
+    """The provider is down or returned a server error. Retry."""
+
     retryable = True
 
 
@@ -54,10 +58,14 @@ class ContextTooLong(ModelError):
 
 
 class AuthFailed(ModelError):
+    """The API key is missing, wrong or lacks permission. Not retryable."""
+
     pass
 
 
 class BadRequest(ModelError):
+    """The provider rejected the request as malformed. Not retryable."""
+
     pass
 
 

@@ -60,6 +60,8 @@ class RunStarted(_EventBase):
 
 
 class RunCompleted(_EventBase):
+    """The run finished normally with a final answer."""
+
     type: Literal["run.completed"] = "run.completed"
     output: Message
     usage: Usage
@@ -70,6 +72,8 @@ RunFailureReason: TypeAlias = Literal["max_steps", "budget_exceeded", "error", "
 
 
 class RunFailed(_EventBase):
+    """The run stopped early: step or budget limit, an error, or cancellation."""
+
     type: Literal["run.failed"] = "run.failed"
     reason: RunFailureReason
     message: str = ""
@@ -90,6 +94,8 @@ class ModelRequested(_EventBase):
 
 
 class ModelResponded(_EventBase):
+    """The model answered; ``response`` is the complete reply."""
+
     type: Literal["model.responded"] = "model.responded"
     step: int = Field(ge=1)
     response: ModelResponse

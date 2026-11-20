@@ -2,6 +2,7 @@
 
 - **Status:** step 2 (module map and project structure) agreed 2026-11-16. Step 3 (interface contracts) agreed 2026-11-17: one ADR per port, [ADR-0002](docs/adr/0002-model-adapter-port.md) to [ADR-0011](docs/adr/0011-memory-store-port.md). Step 4 (repo layout with stubs) done 2026-11-17. Step 5 (filling modules) follows the milestones in [ROADMAP.md](ROADMAP.md).
 - **Requirements and decisions:** [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). This file describes *how* the code is organized to meet them.
+- **How the code works, end to end:** [docs/internals/](docs/internals/README.md), one page per area, updated with each milestone.
 - **Detailed design of each module:** ADRs in [docs/adr/](docs/adr/), written when that module is built.
 
 ## Shape: ports and adapters

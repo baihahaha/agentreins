@@ -31,6 +31,7 @@ class Ledger:
         return redacted
 
     async def read(self, run_id: str, after_seq: int = -1) -> list[Event]:
+        """Return the run's events with ``seq > after_seq``, as stored (redacted)."""
         return await self._store.read(run_id, after_seq)
 
     async def _redact(self, event: Event) -> Event:

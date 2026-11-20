@@ -76,6 +76,8 @@ class Prepared:
 
 @dataclass(frozen=True, slots=True)
 class Completed:
+    """The tool returned a result (which may itself be a handled error)."""
+
     result: ToolResult
     duration_ms: float
 

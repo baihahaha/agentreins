@@ -14,7 +14,9 @@ class ContextStrategy(Protocol):
     Every strategy must keep the four rules of ADR-0009 D2 (checked by contract tests).
     """
 
-    async def select(self, messages: list[Message], token_budget: int) -> list[Message]: ...
+    async def select(self, messages: list[Message], token_budget: int) -> list[Message]:
+        """Return the messages to send this turn, fitting within ``token_budget``."""
+        ...
 
 
 class Retriever(Protocol):
@@ -27,4 +29,6 @@ class Retriever(Protocol):
         credentials: Credentials | None,
         top_k: int,
         filters: Mapping[str, object] | None,
-    ) -> list[Document]: ...
+    ) -> list[Document]:
+        """Return up to ``top_k`` documents for ``query``, best first."""
+        ...

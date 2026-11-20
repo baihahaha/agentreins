@@ -66,17 +66,23 @@ class ModelCapabilities(FrozenModel):
 
 
 class TextDelta(FrozenModel):
+    """A fragment of the reply's text."""
+
     type: Literal["text_delta"] = "text_delta"
     text: str
 
 
 class ToolUseStart(FrozenModel):
+    """The model started a tool call; its arguments follow as ToolArgsDelta events."""
+
     type: Literal["tool_use_start"] = "tool_use_start"
     id: str
     name: str
 
 
 class ToolArgsDelta(FrozenModel):
+    """A fragment of a tool call's arguments."""
+
     type: Literal["tool_args_delta"] = "tool_args_delta"
     id: str
     delta: str
@@ -84,11 +90,15 @@ class ToolArgsDelta(FrozenModel):
 
 
 class ReasoningDelta(FrozenModel):
+    """A fragment of the model's reasoning, if the provider exposes it."""
+
     type: Literal["reasoning_delta"] = "reasoning_delta"
     text: str
 
 
 class UsageUpdate(FrozenModel):
+    """Token usage so far, sent by providers that report it while streaming."""
+
     type: Literal["usage_update"] = "usage_update"
     usage: Usage
 
