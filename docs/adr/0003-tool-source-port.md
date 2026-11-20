@@ -52,7 +52,9 @@ A side-effecting tool should pass `idempotency_key` to the real system (for exam
 ```python
 @runtime_checkable
 class ArgumentValidator(Protocol):
-    async def validate(self, name: str, arguments: dict[str, JsonValue]) -> dict[str, JsonValue]: ...
+    async def validate(
+        self, name: str, arguments: dict[str, JsonValue]
+    ) -> dict[str, JsonValue]: ...
 ```
 
 Policy must see checked arguments (ADR-0004 D2), but the core cannot depend on a JSON Schema library. So a source may implement `validate()`: it returns the cleaned arguments or raises `InvalidToolArguments`. The Python source does, with pydantic (full checks and type conversion). Sources without it, such as MCP servers, get the harness's built-in basic check (`type`, `properties`, `required`, `additionalProperties: false`, `items`, `enum`). Rejected: only the basic check for every source (constraints like "quantity > 0" would be enforced only after policy had already allowed the call).
