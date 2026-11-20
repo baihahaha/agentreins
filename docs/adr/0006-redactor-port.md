@@ -21,7 +21,7 @@ class Redactor(Protocol):
     async def redact(self, event: Event) -> Event: ...
 ```
 
-Applied by the ledger before every append. It may change event content only; IDs, sequence number and type must stay unchanged (checked by contract tests). Not merged into hooks: hooks observe and may fail without stopping the run, whereas the redactor changes data and must never be skipped.
+Applied by the ledger before every append. It may change event content only; IDs, sequence number and type must stay unchanged (checked by contract tests, and also by the ledger at runtime: a violation raises `RedactionError` and nothing is stored). `Ledger.append` returns the events as stored, and the runtime must use those from then on. Not merged into hooks: hooks observe and may fail without stopping the run, whereas the redactor changes data and must never be skipped.
 
 ### D2. The model sees what was stored
 

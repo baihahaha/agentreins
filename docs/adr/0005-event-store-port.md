@@ -43,6 +43,15 @@ Events are stored as JSON with a `schema_version` per event, identical across al
 4. Conflicting writes raise `ConflictError`; nothing is written.
 5. A run key maps to at most one run.
 
+### D6. Built-in stores (decided 2026-11-18, M2)
+
+- **SQLite (default)** uses only the standard library `sqlite3`. Calls run in a worker thread (`asyncio.to_thread`) on one lock-guarded connection, so disk I/O never blocks the event loop. Rejected: `aiosqlite` (a dependency, so it could not be the default) and blocking calls on the event loop.
+- **Durability:** WAL journal with `synchronous=FULL`, so promise 3 holds even across a power cut (about 1–5 ms per append). Rejected: `synchronous=NORMAL`, which is crash-safe but can lose the last appends on power loss.
+- **Atomic append:** `BEGIN IMMEDIATE` takes the write lock before the `expected_seq` check, so several processes can share one file. The first append of a run must start with `run.started`; it creates the run and claims its run key in the same transaction.
+- **Status** of a run follows its latest event (`run.completed` / `run.failed` / anything else = `running`), so a failed run that is resumed shows as running again.
+- **In-memory** store for tests: same rules, not durable.
+- **Contract tests** live in `tests/contract/` for now; they move into `agentreins.testing` before the v0.5 freeze so third-party stores can reuse them.
+
 ## Comparison
 
 To be completed when built: LangGraph checkpointers (state snapshots, not an event log), Temporal event history, EventStoreDB expected-version appends.
