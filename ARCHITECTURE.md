@@ -52,11 +52,11 @@ The core logic never talks to the outside world directly. It talks only to **por
 agentreins/
 │
 ├── src/agentreins/
-│   ├── __init__.py              # PUBLIC API: the only thing users import from.
+│   ├── __init__.py              # Layer 4 PUBLIC API: the only thing users import from.
 │   │                            #   Re-exports Agent, tool, session, Allow/Deny/RequireApproval…
 │   ├── py.typed
 │   │
-│   ├── types/                   # ① VOCABULARY: pure data shapes, no logic
+│   ├── types/                   # Layer 0 VOCABULARY: pure data shapes, no logic
 │   │   ├── content.py           #   Message, TextBlock, ToolUseBlock, ToolResultBlock, ReasoningBlock, ImageBlock
 │   │   ├── model.py             #   ModelRequest, ModelResponse, ModelStreamEvent, ModelCapabilities
 │   │   ├── events.py            #   Event envelope + every event type (run.started, tool.call.requested…)
@@ -67,7 +67,7 @@ agentreins/
 │   │   ├── budget.py            #   Budget, Usage
 │   │   └── errors.py            #   agentreins exception hierarchy
 │   │
-│   ├── ports/                   # ② SOCKETS: the 10 extension interfaces, no implementations
+│   ├── ports/                   # Layer 1 PORTS: the 10 extension interfaces, no implementations
 │   │   ├── model.py             #   ModelAdapter
 │   │   ├── tool_source.py       #   ToolSource
 │   │   ├── policy.py            #   Policy
@@ -78,7 +78,7 @@ agentreins/
 │   │   ├── redactor.py          #   Redactor
 │   │   └── hooks.py             #   Hooks
 │   │
-│   ├── tools/                   # ③ CORE ENGINES (the logic; uses only ① and ②)
+│   ├── tools/                   # Layer 2 CORE ENGINES (the logic; uses only layers 0 and 1)
 │   │   ├── registry.py          #   which tools exist for this agent
 │   │   ├── harness.py           #   validate → policy → approval → credentials → execute → result
 │   │   └── schema_check.py      #   basic argument check for sources that cannot validate
@@ -88,7 +88,7 @@ agentreins/
 │   │   ├── ledger.py            #   append events (redacted first), read events
 │   │   ├── projections.py       #   events → message history, run state
 │   │   └── recovery.py          #   on resume: find unfinished work
-│   ├── runtime/
+│   ├── runtime/                 # Layer 3 ORCHESTRATION (with session/)
 │   │   ├── agent.py             #   Agent definition (prompt, tools, model, output type) + fingerprint
 │   │   ├── loop.py              #   one run: model → tools → model … with budgets
 │   │   ├── interrupts.py        #   pause for approval, resume
@@ -98,7 +98,7 @@ agentreins/
 │   │
 │   ├── testing/                 #   no_governance() and other test helpers (REQUIREMENTS D7)
 │   │
-│   └── adapters/                # ④ PLUGS: implementations of the ports
+│   └── adapters/                # ADAPTERS: implementations of the ports
 │       ├── models/              #   fake.py · anthropic.py · openai_compat.py
 │       ├── event_stores/        #   sqlite.py (default) · in_memory.py
 │       ├── memory_stores/       #   in_memory.py (reference only)
