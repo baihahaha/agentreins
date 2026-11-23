@@ -5,6 +5,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ## [Unreleased]
 
 ### Added
+- Models (M4): `FakeModel` (scripted, for tests and examples) and `OpenAIChatModel` (OpenAI Chat Completions and compatible servers, via `httpx` in the `providers` extra) with streaming and normalized errors; ModelAdapter contract tests; recorded tests replaying real OpenAI responses; live tests (`pytest -m live`).
 - Internals guide (`docs/internals/`): overview of one agent run, plus pages for types, storage and tools. Docstrings required on public code (ruff `D101`–`D103`); a test keeps doc links valid.
 - Tools (M3): `@tool` decorator and `PythonToolSource` (pydantic-validated arguments), `ToolRegistry`, `ToolHarness` (check -> prepare -> execute; policy timeout and fail-closed handling; credential scrubbing), built-in basic schema check, optional `ArgumentValidator` port, `DefaultPolicy`, `EnvCredentialProvider`; rejection reason `credentials_unavailable`.
 - Storage (M2): `Ledger` (redact, check, store), `project_messages` (events -> conversation), `SQLiteEventStore` (default, stdlib only, WAL + `synchronous=FULL`), `InMemoryEventStore`, `PassThroughRedactor`, `RedactionError`; contract tests for EventStore and Redactor.

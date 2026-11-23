@@ -27,7 +27,7 @@ This page first explains **how the code is organised** (the pieces), then shows 
 | [01 Types](01-types.md) | The shared vocabulary: messages, model calls, tools, events | M1 |
 | [02 Storage](02-storage.md) | Ledger, redactor, event stores, projection | M2 |
 | [03 Tools](03-tools.md) | `@tool`, tool sources, registry, harness, policy, credentials | M3 |
-| 04 Models | Fake and OpenAI-compatible adapters | M4 (to do) |
+| [04 Models](04-models.md) | Fake model, OpenAI-compatible adapter, recorded and live tests | M4 |
 | 05 Runtime | The agent loop, context, hooks, budgets | M5 (to do) |
 | 06 Durability | Recovery, sessions, run keys | M6 (to do) |
 | 07 Control | Approvals, rules policy, secrets redactor | M7 (to do) |
@@ -162,7 +162,7 @@ This pattern is called **ports and adapters** (or hexagonal architecture). Other
 | `ToolSource` | Where tools come from | Tool harness | `PythonToolSource` | MCP (M8) |
 | `Policy` | Whether a tool call may run | Tool harness | `DefaultPolicy` | Rules policy (M7) |
 | `CredentialProvider` | Which identity reaches a system | Tool harness | `EnvCredentialProvider` (dev only) | Platform plug-ins (STS, OAuth) |
-| `ModelAdapter` | Which model provider answers | Runtime | none yet | Fake, OpenAI Chat Completions (M4); Anthropic (M8) |
+| `ModelAdapter` | Which model provider answers | Runtime | `FakeModel`, `OpenAIChatModel` | Anthropic (M8) |
 | `ContextStrategy` | What part of the history the model sees | Context manager | none yet | Keep-all (M5), truncate (M8) |
 | `Hooks` | Who gets told about every event | Runtime | none (you write your own) | |
 | `Retriever` | Where knowledge is searched | Runtime | none yet | Chroma, in `agentreins[knowledge]` (M8) |
@@ -228,7 +228,7 @@ What this shows:
 | Types for everything above | Built (M1) |
 | Ledger, redaction, SQLite and in-memory stores, projection | Built (M2) |
 | `@tool`, registry, harness, default policy, env credentials | Built (M3) |
-| Model adapters (Fake, OpenAI Chat Completions) | M4 |
+| Model adapters (Fake, OpenAI Chat Completions) | Built (M4) |
 | The loop itself (`Agent`, `run()`), context strategy, hooks, budgets | M5 |
 | Resume after a crash, sessions, run keys in practice | M6 |
 | Approvals, rules policy, secrets redactor, `no_governance()` | M7 |
