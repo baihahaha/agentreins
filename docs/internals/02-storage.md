@@ -105,7 +105,35 @@ And for the ledger and projection:
 
 **Your own event store** (e.g. Postgres): implement the five methods of [EventStore](../../src/agentreins/ports/event_store.py), call `check_batch` and `status_after` from [_common.py](../../src/agentreins/adapters/event_stores/_common.py) if you like, and serialize with `EVENT_JSON`. Then add your store to the `store` fixture in [test_event_store_contract.py](../../tests/contract/test_event_store_contract.py): if every contract test passes, the runtime can rely on it. (Before v0.5 the contract tests move into `agentreins.testing`, so they can be run from outside this repo.)
 
-**Your own redactor:** one method, `async def redact(event) -> Event`. Change content with `event.model_copy(update=…)`; never change IDs, `seq` or type. Add it to the `redactor` fixture in [test_redactor_contract.py](../../tests/contract/test_redactor_contract.py).
+**Your own redactor:** one method, `async def redact(event) -> Event`. Change content with `event.model_copy(update=…)`; never change IDs, `seq` or type. A complete example that hides email addresses in tool results:
+
+```python
+import re
+from agentreins.types.content import TextBlock
+from agentreins.types.events import Event, ToolCallCompleted
+
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+
+
+class EmailRedactor:
+    """Replaces email addresses in tool results before they are stored."""
+
+    async def redact(self, event: Event) -> Event:
+        if not isinstance(event, ToolCallCompleted):
+            return event
+        content = [
+            TextBlock(text=EMAIL.sub("[email]", b.text)) if isinstance(b, TextBlock) else b
+            for b in event.result.content
+        ]
+        result = event.result.model_copy(update={"content": content})
+        return event.model_copy(update={"result": result})
+
+
+ledger = Ledger(SQLiteEventStore("agentreins.db"), EmailRedactor())
+# a tool returning "Contact: ana@acme.com" is stored, and later shown to the model, as "Contact: [email]"
+```
+
+No base class is needed: any class with a matching `redact` method fits the port, and pyright checks the signature. To prove it is a *correct* redactor, add it to the `redactor` fixture in [test_redactor_contract.py](../../tests/contract/test_redactor_contract.py): the contract tests check it never changes an event's ID, `seq` or type.
 
 ## Known limits
 
