@@ -78,7 +78,7 @@ testpaths = ["tests"]
 pythonpath = ["tests"]  # shared test helpers, e.g. builders.py
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not live'"  # live tests: pytest -m live
 markers = ["live: calls a real model provider (opt-in, needs API keys)"]
 
 [tool.coverage.run]

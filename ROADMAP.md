@@ -41,9 +41,9 @@ Releases: publish **0.1.0** to PyPI after M5; **v0.5 (API freeze)** after M7 plu
 Done: dependencies installed with `uv sync --locked`, job timeouts, merged branches auto-deleted.
 
 **At the start of M4** (CI starts holding an API key):
-- [ ] Pin every third-party action to a commit SHA (with the version in a comment)
-- [ ] Add `.github/dependabot.yml` for `github-actions` and `uv`
-- [ ] Nightly scheduled workflow running `live` tests, with provider keys stored as repository secrets
+- [x] Pin every third-party action to a commit SHA (with the version in a comment)
+- [x] Add `.github/dependabot.yml` for `github-actions` and `uv`
+- [x] Nightly scheduled workflow running `live` tests, with provider keys stored as repository secrets (`live.yml`; the `OPENAI_API_KEY` secret is set by the maintainer)
 
 **Before publishing 0.1.0** (CI starts publishing to PyPI):
 - [ ] Release only tested code: run the checks in `release.yml`, or restrict `v*` tags to commits on `main`
