@@ -21,7 +21,7 @@ Rule: **cut scope, not reliability.**
 | **M2** | Storage | `ledger/`; in-memory and SQLite event stores; pass-through redactor; contract tests for EventStore and Redactor | Save and read a run's log; storage survives crashes |
 | **M3** | Tools | `tools/` (decorator, registry, harness); Python tool source; default policy; environment credentials | A Python function becomes a governed tool |
 | **M4** | Models | Fake model; OpenAI Chat Completions adapter; recorded-response tests; ModelAdapter contract tests | Call OpenAI-compatible providers (OpenAI, Kimi, Ollama…) through the port |
-| **M5** | First agent | `context/`; keep-all strategy; `runtime/` (loop, hooks); `examples/01_hello_tool.py` | **A complete agent runs**, offline (Fake) and live (OpenAI) |
+| **M5** | First agent | M5a: `context/`, keep-all strategy, `runtime/` (loop, retries, budgets, hooks). M5b: `Agent` public API, defaults, `run_sync`, `examples/01_hello_tool.py`, internals page | **A complete agent runs**, offline (Fake) and live (OpenAI) |
 | **M6** | Durability | `ledger/recovery`; `session/`; run keys; crash-injection tests | Kill an agent mid-run and resume it |
 | **M7** | Control | Interrupts and approvals; rules policy; secrets redactor; `testing.no_governance()` | Human approval for actions |
 | **M8+** | Breadth | MCP; truncation; memory tools; knowledge extra (Chroma, text-to-SQL); Anthropic adapter; supply-chain example; docs site | Real-world features |

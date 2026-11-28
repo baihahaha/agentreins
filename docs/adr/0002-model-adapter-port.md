@@ -95,6 +95,8 @@ Each adapter declares `capabilities`: images, parallel tool calls, native struct
 - **Reasoning** (decided): the Chat Completions adapter reads `reasoning_content` into a `ReasoningBlock` and never sends reasoning back.
 - **Context window** (decided): a constructor setting, `max_context_tokens`, default 128k.
 - **Usage:** `input_tokens` counts all input tokens, cached included; `cache_read_tokens` is the cached part.
+- **Retries (M5a):** `RetryPolicy` in the runtime: 3 attempts; waits 1 s, 2 s, 4 s… up to 30 s; a provider's `retry_after` is used instead when given (also capped at 30 s). Each failed attempt is a `model.failed` event and counts against wall time; a retry is not a new step.
+- **Streaming (M5a):** the runtime calls `stream_response` only when hooks are registered (they receive every delta), otherwise `get_response`. The contract test guarantees both give the same final response.
 
 ## Comparison
 
