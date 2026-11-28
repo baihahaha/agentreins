@@ -28,7 +28,7 @@ This page first explains **how the code is organised** (the pieces), then shows 
 | [02 Storage](02-storage.md) | Ledger, redactor, event stores, projection | M2 |
 | [03 Tools](03-tools.md) | `@tool`, tool sources, registry, harness, policy, credentials | M3 |
 | [04 Models](04-models.md) | Fake model, OpenAI-compatible adapter, recorded and live tests | M4 |
-| 05 Runtime | The agent loop, context, hooks, budgets | M5 (to do) |
+| [05 Runtime](05-runtime.md) | `Agent`, the agent loop, retries, budgets, context, hooks | M5 |
 | 06 Durability | Recovery, sessions, run keys | M6 (to do) |
 | 07 Control | Approvals, rules policy, secrets redactor | M7 (to do) |
 
@@ -43,9 +43,9 @@ Read it top to bottom: your app calls down through the layers. Layer numbers mat
 ```
         your app
            │  calls
- Layer 4   public API      Agent · run() · tool          (M5)
+ Layer 4   public API      Agent · run() · tool
            │  builds the agent, plugs in adapters
- Layer 3   runtime         the loop · sessions           (M5–M6)
+ Layer 3   runtime         the loop · sessions (M6)
            │  uses
  Layer 2   engines         Ledger · ToolHarness · context
            │  calls only the methods listed in
@@ -163,7 +163,7 @@ This pattern is called **ports and adapters** (or hexagonal architecture). Other
 | `Policy` | Whether a tool call may run | Tool harness | `DefaultPolicy` | Rules policy (M7) |
 | `CredentialProvider` | Which identity reaches a system | Tool harness | `EnvCredentialProvider` (dev only) | Platform plug-ins (STS, OAuth) |
 | `ModelAdapter` | Which model provider answers | Runtime | `FakeModel`, `OpenAIChatModel` | Anthropic (M8) |
-| `ContextStrategy` | What part of the history the model sees | Context manager | none yet | Keep-all (M5), truncate (M8) |
+| `ContextStrategy` | What part of the history the model sees | Context manager | `KeepAll` | Truncate (M8) |
 | `Hooks` | Who gets told about every event | Runtime | none (you write your own) | |
 | `Retriever` | Where knowledge is searched | Runtime | none yet | Chroma, in `agentreins[knowledge]` (M8) |
 | `MemoryStore` | Where long-term memory lives | Runtime | none yet | In-memory reference (M8) |
@@ -229,8 +229,8 @@ What this shows:
 | Ledger, redaction, SQLite and in-memory stores, projection | Built (M2) |
 | `@tool`, registry, harness, default policy, env credentials | Built (M3) |
 | Model adapters (Fake, OpenAI Chat Completions) | Built (M4) |
-| The loop itself (`Agent`, `run()`), context strategy, hooks, budgets | M5 |
+| The loop itself (`Agent`, `run()`), context strategy, hooks, budgets | Built (M5) |
 | Resume after a crash, sessions, run keys in practice | M6 |
 | Approvals, rules policy, secrets redactor, `no_governance()` | M7 |
 
-So today the engines, ports and first adapters exist and are tested on their own; M5 adds the runtime and public API that wire them into the loop above.
+So since M5, the loop above runs for real: `Agent(...).run(...)`, offline with `FakeModel` or live. Next: resuming crashed runs (M6) and approvals (M7).

@@ -40,4 +40,6 @@ The context manager estimates the request size (about 4 characters per token, co
 
 ## Comparison
 
-To be completed when built: LangChain `trim_messages`, Pydantic AI history processors, OpenAI Agents SDK sessions, Claude Agent SDK compaction.
+- **LangChain `trim_messages` / Pydantic AI history processors:** functions over the message list, run before each model call, like `select`. Keeping tool calls and results together is the function's job there too.
+- **OpenAI Agents SDK sessions:** store and reload history; trimming is left to the application.
+- **Claude Agent SDK compaction:** summarizes old turns automatically when the window fills. A summarizing strategy would fit our port, with the summary recorded as an event (D1) so a resumed run reuses it.

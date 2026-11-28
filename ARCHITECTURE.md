@@ -54,6 +54,7 @@ agentreins/
 ├── src/agentreins/
 │   ├── __init__.py              # Layer 4 PUBLIC API: the only thing users import from.
 │   │                            #   Re-exports Agent, tool, session, Allow/Deny/RequireApproval…
+│   ├── agent.py                 # Layer 4: Agent (chooses default adapters, builds the runtime)
 │   ├── py.typed
 │   │
 │   ├── types/                   # Layer 0 VOCABULARY: pure data shapes, no logic
@@ -89,7 +90,6 @@ agentreins/
 │   │   ├── projections.py       #   events → message history, run state
 │   │   └── recovery.py          #   on resume: find unfinished work
 │   ├── runtime/                 # Layer 3 ORCHESTRATION (with session/)
-│   │   ├── agent.py             #   Agent definition (prompt, tools, model, output type) + fingerprint
 │   │   ├── loop.py              #   one run: model → tools → model … with budgets
 │   │   ├── interrupts.py        #   pause for approval, resume
 │   │   └── hooks.py             #   calls registered hooks at each step

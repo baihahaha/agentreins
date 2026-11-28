@@ -20,23 +20,25 @@ Most frameworks make the *happy path* easy. agentreins focuses on what happens w
 ## Quickstart
 
 ```bash
-pip install agentreins            # not yet published
+pip install "agentreins[providers]"   # not yet published; [providers] adds httpx for OpenAI-compatible APIs
 ```
 
 ```python
-# Illustrative. The API is being designed (see docs/adr/).
 from agentreins import Agent, tool
 
 
 @tool(effect="read_only")
 def get_inventory(sku: str) -> int:
     """Return units on hand for a SKU."""
-    ...
+    return {"A-12": 40}.get(sku, 0)
 
 
-agent = Agent(model="openai:gpt-4o-mini", tools=[get_inventory])
-result = await agent.run("How many units of A-12 do we have?")
+agent = Agent("openai:gpt-4.1-mini", tools=[get_inventory])  # reads OPENAI_API_KEY
+result = agent.run_sync("How many units of A-12 do we have?")
+print(result.output)
 ```
+
+Every step of the run is saved in `agentreins.db`. Tools that change things (`effect` not given, or `"side_effecting"`) need approval by default. Offline version with a scripted model: [examples/01_hello_tool.py](examples/01_hello_tool.py).
 
 ## Non-goals (for 1.0)
 

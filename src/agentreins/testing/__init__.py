@@ -1,4 +1,10 @@
-"""Testing helpers, including no_governance() (REQUIREMENTS D7).
+"""Testing helpers.
 
-Lifts the three governance control points for tests: allow-all policy, pass-through
-redactor, static credentials. Never the default; runs record governance_lifted=true."""
+- ``FakeModel``: a scripted model, so agents can be tested offline.
+- ``no_governance()`` (M7, REQUIREMENTS D7): lifts the three governance control points
+  for tests. Never the default; runs record ``governance_lifted=true``.
+"""
+
+from agentreins.adapters.models.fake import FakeModel
+
+__all__ = ["FakeModel"]

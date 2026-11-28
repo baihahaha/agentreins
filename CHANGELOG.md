@@ -5,6 +5,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ## [Unreleased]
 
 ### Added
+- Public API (M5b): `Agent` (`"openai:model"` strings or adapter objects; safe default adapters; `run`, `run_sync`, `close`, `async with`), top-level exports, `agentreins.testing.FakeModel`, `examples/01_hello_tool.py` (offline, run in CI) and `_live.py`, internals page `05-runtime.md`.
 - Runtime engine (M5a): the agent loop (`Runtime.run`) with parallel tool calls, retries with backoff, step/token/wall-time budgets, cancellation, and every step in the event log; `ContextManager` with the keep-all strategy; hook dispatch; `RunError`. Context-strategy contract tests.
 - Models (M4): `FakeModel` (scripted, for tests and examples) and `OpenAIChatModel` (OpenAI Chat Completions and compatible servers, via `httpx` in the `providers` extra) with streaming and normalized errors; ModelAdapter contract tests; recorded tests replaying real OpenAI responses; live tests (`pytest -m live`).
 - Internals guide (`docs/internals/`): overview of one agent run, plus pages for types, storage and tools. Docstrings required on public code (ruff `D101`–`D103`); a test keeps doc links valid.
