@@ -302,7 +302,7 @@ async def test_failing_tool_is_recorded_and_the_run_continues() -> None:
 async def test_approval_needed_stops_the_run_cleanly() -> None:
     s = Setup([FakeModel.call("create_po", {"sku": "W1", "qty": 2})], tools=[create_po])
     with pytest.raises(
-        RunError, match=r"create_po needs approval.*allow=\['create_po'\]"
+        RunError, match=r"approval required: create_po has side effects.*allow=\['create_po'\]"
     ) as caught:
         await s.run("Order 2 W1")
     assert caught.value.reason == "error"

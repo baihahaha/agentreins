@@ -374,12 +374,9 @@ class _Run:
         checked = [await self.check(c) for c in calls]
         approvals = [c for c in checked if isinstance(c, NeedsApproval)]
         if approvals:
-            name, reason = approvals[0].spec.name, approvals[0].reason
-            raise _Stop(
-                "error",
-                f"{name} needs approval ({reason}). Approvals arrive in M7; "
-                f"to allow it now, use DefaultPolicy(allow=[{name!r}]).",
-            )
+            # The policy's reason says why and how to allow it; pausing for a human
+            # (instead of stopping) arrives with approvals in M7.
+            raise _Stop("error", f"approval required: {approvals[0].reason}")
         prepared: list[Prepared] = []
         for call, outcome in zip(calls, checked, strict=True):
             if isinstance(outcome, Ready):
