@@ -88,6 +88,15 @@ Each adapter declares `capabilities`: images, parallel tool calls, native struct
 
 `count_tokens(request) -> int` is an optional method. Without it, the context manager estimates (about 4 characters per token) and calibrates using the actual `usage` of each response. No tokenizer dependency (e.g. `tiktoken`) in the core.
 
+### Implementation notes (M4, 2026-11-23)
+
+- **Model name** comes from `ModelRequest.model`; an adapter instance is configured with an endpoint (base URL, key, context window), not a model.
+- **Recorded tests** (decided): real responses saved as plain JSON in `tests/recorded/`, replayed through httpx's mock transport; refreshed with `AGENTREINS_RECORD=1 pytest -m live`. No `vcrpy`.
+- **Reasoning** (decided): the Chat Completions adapter reads `reasoning_content` into a `ReasoningBlock` and never sends reasoning back.
+- **Context window** (decided): a constructor setting, `max_context_tokens`, default 128k.
+- **Usage:** `input_tokens` counts all input tokens, cached included; `cache_read_tokens` is the cached part.
+
 ## Comparison
 
-To be completed when the adapter is built (Compare step): verify against current OpenAI Agents SDK `Model` and Pydantic AI `Model` interfaces.
+- **OpenAI Agents SDK `Model`:** also two methods, `get_response` and `stream_response`, but they take the SDK's own input items, settings, tools, handoffs and tracing arguments, and adapters are built on the `openai` SDK. Ours take one `ModelRequest` and speak HTTP directly.
+- **Pydantic AI `Model`:** `request` plus a streamed variant used as a context manager; one OpenAI model class serves many compatible providers, as ours does. Retries are left to the HTTP client there; ours are left to the runtime, so every attempt is recorded.
