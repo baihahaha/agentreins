@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from agentreins.types.content import Message, TextBlock, ToolResultBlock, ToolUseBlock
 from agentreins.types.events import (
     Event,
+    MessageAdded,
     ModelResponded,
     RunStarted,
     ToolCallCompleted,
@@ -24,7 +25,8 @@ class ProjectionError(ValueError):
 def project_messages(events: Sequence[Event]) -> list[Message]:
     """Rebuild the conversation from a run's events.
 
-    - ``run.started`` -> its input messages; ``model.responded`` -> the assistant message.
+    - ``run.started`` -> its input messages; ``model.responded`` -> the assistant message;
+      ``message.added`` -> that (user) message.
     - Tool outcomes (completed / failed / rejected) -> one ``user`` message per model
       step, results in the same order as the tool calls (providers require this), not
       in the order the tools finished.
@@ -53,6 +55,9 @@ def project_messages(events: Sequence[Event]) -> list[Message]:
         match event:
             case RunStarted():
                 messages.extend(event.input)
+            case MessageAdded():
+                close_step()
+                messages.append(event.message)
             case ModelResponded():
                 close_step()
                 message = event.response.message

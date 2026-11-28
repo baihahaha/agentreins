@@ -3,8 +3,8 @@
 import pytest
 
 from agentreins.ledger.projections import ProjectionError, project_messages
-from agentreins.types.content import TextBlock, ToolResultBlock, ToolUseBlock
-from agentreins.types.events import Event, ToolCallFailed, ToolCallRejected
+from agentreins.types.content import Message, TextBlock, ToolResultBlock, ToolUseBlock
+from agentreins.types.events import Event, MessageAdded, ToolCallFailed, ToolCallRejected
 from builders import requested, responded, started, tool_completed, tool_started
 
 R = "r1"
@@ -61,6 +61,19 @@ def test_failed_and_rejected_calls_become_error_results() -> None:
         TextBlock(text="Tool timed out"),
         TextBlock(text="not allowed"),
     ]
+
+
+def test_added_message_closes_the_step_and_joins_the_conversation() -> None:
+    reminder = Message.user("Please answer with the tool.")
+    messages = project_messages(
+        [
+            started(R),
+            responded(R, 1, text="plain text"),
+            MessageAdded(run_id=R, seq=2, message=reminder, origin="runtime"),
+        ]
+    )
+    assert [m.role for m in messages] == ["user", "assistant", "user"]
+    assert messages[-1] == reminder
 
 
 def test_call_without_outcome_is_left_out() -> None:

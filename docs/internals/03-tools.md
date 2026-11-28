@@ -75,6 +75,73 @@ Before returning, any credential value that appears in the result text or error 
 
 `execute` only accepts a `Prepared`, which only `prepare` creates from a `Ready`, which only `check` creates after `Allow`. Each carries a private token known only to the harness that made it ([harness.py:257](../../src/agentreins/tools/harness.py#L257)), so a hand-built `Ready` or one from another harness is refused.
 
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** what `@tool` builds from a plain function.
+
+```bash
+uv run python - <<'EOF'
+import json
+from agentreins import tool
+
+@tool(effect="read_only")
+def get_stock(sku: str, warehouse: str = "main") -> int:
+    """Units on hand for a product SKU."""
+    return 7
+
+print("name:", get_stock.spec.name, "| effect:", get_stock.spec.effect)
+print("what the model sees:", json.dumps(get_stock.spec.input_schema, indent=1))
+print("still a normal function:", get_stock("W1"))
+EOF
+```
+
+**Try:** one call through all three phases, and what the default policy does with a side effect.
+
+```bash
+uv run python - <<'EOF'
+import asyncio
+from agentreins import tool
+from agentreins.adapters.credentials.env import EnvCredentialProvider
+from agentreins.adapters.policies.default import DefaultPolicy
+from agentreins.adapters.tool_sources.python import PythonToolSource
+from agentreins.tools.harness import ToolHarness, Ready
+from agentreins.tools.registry import ToolRegistry
+from agentreins.types.content import ToolUseBlock
+from agentreins.types.identity import Principal
+
+@tool(effect="read_only")
+def get_stock(sku: str) -> int:
+    """Units on hand."""
+    return 7
+
+@tool                                   # no effect given: side_effecting
+def create_po(sku: str, qty: int) -> str:
+    """Create a purchase order."""
+    return "PO-1"
+
+async def main():
+    registry = await ToolRegistry.from_sources([PythonToolSource([get_stock, create_po])])
+    harness = ToolHarness(registry, DefaultPolicy(), EnvCredentialProvider())
+    me = Principal(id="ana")
+
+    checked = await harness.check(ToolUseBlock(id="c1", name="get_stock", arguments={"sku": "W1"}), principal=me, run_id="r1")
+    print("1 check:  ", type(checked).__name__)
+    assert isinstance(checked, Ready)
+    prepared = await harness.prepare(checked, principal=me, run_id="r1")
+    print("2 prepare:", type(prepared).__name__, "| idempotency key:", prepared.context.idempotency_key)
+    print("3 execute:", await harness.execute(prepared))
+
+    bad = await harness.check(ToolUseBlock(id="c2", name="create_po", arguments={"sku": "W1", "qty": "many"}), principal=me, run_id="r1")
+    print("\nbad arguments:", bad)
+    order = await harness.check(ToolUseBlock(id="c3", name="create_po", arguments={"sku": "W1", "qty": 2}), principal=me, run_id="r1")
+    print("side effect:", type(order).__name__, "->", order.reason)
+
+asyncio.run(main())
+EOF
+```
+
 ## Guarantees
 
 All in [test_harness.py](../../tests/unit/tools/test_harness.py) unless noted:

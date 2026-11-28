@@ -11,16 +11,17 @@ How the code works, end to end. For maintainers and contributors: read it to und
 
 ## How to read it
 
-This page first explains **how the code is organised** (the pieces), then shows **one agent run** (the pieces working together). Then read the area pages in order. Each has the same sections:
+This page first explains **how the code is organised** (the pieces), then shows **one agent run** (the pieces working together). Then read the area pages in order (about 2.5 hours in total). Each has the same sections:
 
 1. **What it does**, in two or three sentences.
 2. **Diagram** of the main flow.
 3. **Files**: which file holds what.
 4. **Walkthrough**: one concrete example traced through the code, with line links.
-5. **Guarantees**: each promise, and the test that proves it.
-6. **Design choices**: what was picked, the alternatives, and what other frameworks do.
-7. **Extending it**: how to plug in your own implementation.
-8. **Known limits**: what it does not do (yet).
+5. **Try it**: copy-paste experiments to run while reading.
+6. **Guarantees**: each promise, and the test that proves it.
+7. **Design choices**: what was picked, the alternatives, and what other frameworks do.
+8. **Extending it**: how to plug in your own implementation.
+9. **Known limits**: what it does not do (yet).
 
 | Page | Area | Built in |
 |---|---|---|
@@ -33,6 +34,28 @@ This page first explains **how the code is organised** (the pieces), then shows 
 | 07 Control | Approvals, rules policy, secrets redactor | M7 (to do) |
 
 Rule: every milestone PR adds or updates its page here (see [CLAUDE.md](../../CLAUDE.md)).
+
+### Before you start
+
+```bash
+uv sync --all-extras          # install everything, including dev tools
+uv run pytest -q              # all offline tests: should end with "passed"
+```
+
+Run one test file, or one test, while reading:
+
+```bash
+uv run pytest tests/unit/runtime/test_loop.py -v
+uv run pytest tests/unit/runtime/test_loop.py -v -k parallel
+```
+
+The **Try it** experiments need nothing else: they are offline and free. To try the same things with a real model, you need `OPENAI_API_KEY` (in this repo it is in the git-ignored `.env`); each run costs well under $0.01:
+
+```bash
+set -a; . ./.env; set +a
+uv run python examples/01_hello_tool_live.py     # the model calls the tool, in parallel for W1 and W2
+uv run pytest -m live -v                         # all live tests, including structured output
+```
 
 ## How the code is organised
 

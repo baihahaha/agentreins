@@ -54,12 +54,13 @@ All SQLite calls run in a worker thread (`asyncio.to_thread`), so disk I/O never
 
 ## Walkthrough: rebuilding the conversation
 
-`project_messages` ([projections.py:24](../../src/agentreins/ledger/projections.py#L24)) walks the events once:
+`project_messages` ([projections.py:25](../../src/agentreins/ledger/projections.py#L25)) walks the events once:
 
 | Event | Becomes |
 |---|---|
 | `run.started` | its input messages |
 | `model.responded` | the assistant message; its tool calls are now "open" |
+| `message.added` | that user message (e.g. the runtime asking for a structured answer) |
 | `tool.call.completed` | a `ToolResultBlock` with the tool's content |
 | `tool.call.failed` | an error result: `"Tool failed: <error>"` or `"Tool timed out"` |
 | `tool.call.rejected` | an error result with the rejection message |
@@ -68,6 +69,67 @@ All SQLite calls run in a worker thread (`asyncio.to_thread`), so disk I/O never
 When the next `model.responded` arrives (or the events end), the open step closes: all its results go into **one** user message, **in the order of the tool calls**, not the order the tools finished. Providers reject anything else. Example: the model calls `a` and `b`, `b` finishes first; the projection still emits `[result a, result b]` ([test_parallel_tool_calls](../../tests/unit/ledger/test_projections.py#L28)).
 
 Same events in, same messages out, every time. That determinism is what makes resume correct: the model gets exactly what it would have got without the crash.
+
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** save a run to SQLite, read it back after "restarting", and see a conflicting write refused.
+
+```bash
+uv run python - <<'EOF'
+import asyncio, tempfile, os
+from agentreins.adapters.event_stores.sqlite import SQLiteEventStore
+from agentreins.types.content import Message
+from agentreins.types.events import RunStarted, ModelRequested
+from agentreins.types.identity import Principal
+from agentreins.types.errors import ConflictError
+
+async def main():
+    path = os.path.join(tempfile.mkdtemp(), "tour.db")
+    store = SQLiteEventStore(path)
+    start = RunStarted(run_id="r1", seq=0, input=[Message.user("hi")], model="m", principal=Principal(id="ana"))
+    await store.append("r1", [start], expected_seq=-1)
+    await store.close()
+
+    store = SQLiteEventStore(path)                       # like a new process
+    print("after reopening:", [e.type for e in await store.read("r1")])
+    ask = ModelRequested(run_id="r1", seq=1, step=1, message_count=1, input_fingerprint="f")
+    await store.append("r1", [ask], expected_seq=0)       # writer A
+    try:
+        await store.append("r1", [ask], expected_seq=0)   # writer B, same position
+    except ConflictError as e:
+        print("second writer refused:", e)
+    await store.close()
+
+asyncio.run(main())
+EOF
+```
+
+**Try:** rebuild the conversation from events. Tool results come back in call order, even though `b` finished first.
+
+```bash
+uv run python - <<'EOF'
+from agentreins.ledger.projections import project_messages
+from agentreins.types.budget import Usage
+from agentreins.types.content import Message, ToolUseBlock
+from agentreins.types.events import RunStarted, ModelResponded, ToolCallCompleted
+from agentreins.types.identity import Principal
+from agentreins.types.model import ModelResponse
+from agentreins.types.tools import ToolResult
+
+calls = Message(role="assistant", content=[ToolUseBlock(id="a", name="t"), ToolUseBlock(id="b", name="t")])
+events = [
+    RunStarted(run_id="r", seq=0, input=[Message.user("go")], model="m", principal=Principal(id="ana")),
+    ModelResponded(run_id="r", seq=1, step=1, latency_ms=1,
+        response=ModelResponse(message=calls, stop_reason="tool_use", usage=Usage(), model="m")),
+    ToolCallCompleted(run_id="r", seq=2, call_id="b", result=ToolResult.text("B"), duration_ms=1),
+    ToolCallCompleted(run_id="r", seq=3, call_id="a", result=ToolResult.text("A"), duration_ms=1),
+]
+for m in project_messages(events):
+    print(m.role, [getattr(b, "tool_use_id", None) or getattr(b, "text", None) or b.type for b in m.content])
+EOF
+```
 
 ## Guarantees
 
@@ -87,7 +149,7 @@ And for the ledger and projection:
 |---|---|
 | A redactor that fails or changes identity stores nothing | [test_bad_redactor_fails_closed](../../tests/unit/ledger/test_ledger.py#L59) |
 | The store gets the redacted events, and so does the caller | [test_store_receives_redacted_events_and_caller_gets_them_back](../../tests/unit/ledger/test_ledger.py#L49) |
-| A result with no matching call, or two results for one call, is an error | [test_result_without_matching_call_is_rejected](../../tests/unit/ledger/test_projections.py#L74), [test_two_results_for_one_call_are_rejected](../../tests/unit/ledger/test_projections.py#L91) |
+| A result with no matching call, or two results for one call, is an error | [test_result_without_matching_call_is_rejected](../../tests/unit/ledger/test_projections.py#L87), [test_two_results_for_one_call_are_rejected](../../tests/unit/ledger/test_projections.py#L104) |
 
 ## Design choices
 

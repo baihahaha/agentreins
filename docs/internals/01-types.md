@@ -30,7 +30,7 @@ ModelResponse      ToolResult,          Allow/Deny/         = envelope + these t
 | [tools.py](../../src/agentreins/types/tools.py) | `Effect`, `ToolSpec`, `ToolCall`, `ToolResult`, `ToolContext` |
 | [policy.py](../../src/agentreins/types/policy.py) | `PolicyRequest` and the three decisions |
 | [identity.py](../../src/agentreins/types/identity.py) | `Principal`, and `Credentials`, which cannot leak |
-| [events.py](../../src/agentreins/types/events.py) | The event envelope, the 11 event types, `Event`, `RunRef` |
+| [events.py](../../src/agentreins/types/events.py) | The event envelope, the 12 event types, `Event`, `RunRef` |
 | [budget.py](../../src/agentreins/types/budget.py) | `Usage` (tokens) and `Budget` (limits; 25 steps by default) |
 | [knowledge.py](../../src/agentreins/types/knowledge.py) | `Document` (retriever results), `MemoryItem` |
 | [errors.py](../../src/agentreins/types/errors.py) | All agentreins exceptions; model errors carry `retryable` |
@@ -71,18 +71,66 @@ Message(role="user", content=[ToolResultBlock(tool_use_id="0193…", content=[Te
  "duration_ms": 12.5}
 ```
 
-`Event` ([events.py:174](../../src/agentreins/types/events.py#L174)) is a discriminated union: pydantic reads `type` and builds exactly `ToolCallCompleted`. The messages of step 1–3 are rebuilt from these events by the projection (see [02 Storage](02-storage.md)).
+`Event` ([events.py:198](../../src/agentreins/types/events.py#L198)) is a discriminated union: pydantic reads `type` and builds exactly `ToolCallCompleted`. The messages of step 1–3 are rebuilt from these events by the projection (see [02 Storage](02-storage.md)).
+
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** a message, its JSON, and an event read back as its exact class.
+
+```bash
+uv run python - <<'EOF'
+from pydantic import TypeAdapter
+from agentreins.types.content import Message, ToolUseBlock
+from agentreins.types.events import Event, ModelResponded
+from agentreins.types.model import ModelResponse
+from agentreins.types.budget import Usage
+
+msg = Message(role="assistant", content=[ToolUseBlock(id="c1", name="get_stock", arguments={"sku": "W1"})])
+print("JSON:", msg.model_dump_json())
+
+event = ModelResponded(run_id="r1", seq=2, step=1, latency_ms=12,
+    response=ModelResponse(message=msg, stop_reason="tool_use", usage=Usage(input_tokens=9), model="m"))
+stored = TypeAdapter(Event).dump_json(event)
+back = TypeAdapter(Event).validate_json(stored)
+print("read back as:", type(back).__name__, "| same?", back == event)
+
+from pydantic import ValidationError
+try:
+    Message(role="user", content=[ToolUseBlock(id="c1", name="x")])
+except ValidationError as e:
+    print("refused:", e.errors()[0]["msg"])
+EOF
+```
+
+**Try:** credentials refuse to leak.
+
+```bash
+uv run python - <<'EOF'
+import pickle
+from agentreins.types.identity import Credentials
+
+key = Credentials("erp", "s3cret-token")
+print("printed:", key)                     # the secret is hidden
+print("revealed:", key.reveal())           # only on purpose
+try:
+    pickle.dumps(key)
+except TypeError as e:
+    print("pickle:", e)
+EOF
+```
 
 ## Guarantees
 
 | Promise | How | Proven by |
 |---|---|---|
-| Data cannot be changed after creation | `frozen=True` on every model | [test_messages_are_frozen](../../tests/unit/types/test_types_content.py#L60), [test_events_are_immutable](../../tests/unit/types/test_types_events.py#L134) |
+| Data cannot be changed after creation | `frozen=True` on every model | [test_messages_are_frozen](../../tests/unit/types/test_types_content.py#L60), [test_events_are_immutable](../../tests/unit/types/test_types_events.py#L136) |
 | Typos in field names fail loudly | `extra="forbid"` | [test_unknown_fields_are_rejected](../../tests/unit/types/test_types_content.py#L66) |
-| JSON reads back as the exact class | `type` discriminator on every union | [test_blocks_are_parsed_by_their_type_field](../../tests/unit/types/test_types_content.py#L52), [test_event_round_trips_through_the_union](../../tests/unit/types/test_types_events.py#L95) |
+| JSON reads back as the exact class | `type` discriminator on every union | [test_blocks_are_parsed_by_their_type_field](../../tests/unit/types/test_types_content.py#L52), [test_event_round_trips_through_the_union](../../tests/unit/types/test_types_events.py#L97) |
 | Blocks match the message role | validator on `Message` | [test_blocks_must_match_role](../../tests/unit/types/test_types_content.py#L79) |
-| Credentials cannot be printed, serialized, pickled or stored | `Credentials` is not pydantic; `repr` shows `***`; pickling raises | [test_credentials_cannot_be_serialized_or_copied](../../tests/unit/types/test_types_governance.py#L91), [test_credentials_cannot_enter_an_event](../../tests/unit/types/test_types_events.py#L147) |
-| Timestamps are unambiguous | `AwareDatetime`: a time without a timezone is rejected | [test_naive_timestamp_is_rejected](../../tests/unit/types/test_types_events.py#L123) |
+| Credentials cannot be printed, serialized, pickled or stored | `Credentials` is not pydantic; `repr` shows `***`; pickling raises | [test_credentials_cannot_be_serialized_or_copied](../../tests/unit/types/test_types_governance.py#L91), [test_credentials_cannot_enter_an_event](../../tests/unit/types/test_types_events.py#L149) |
+| Timestamps are unambiguous | `AwareDatetime`: a time without a timezone is rejected | [test_naive_timestamp_is_rejected](../../tests/unit/types/test_types_events.py#L125) |
 
 ## Design choices
 

@@ -49,6 +49,54 @@ A **model adapter** sends a `ModelRequest` to a model provider and returns a `Mo
 
 **Streaming** goes through `_StreamState` ([openai_compat.py:380](../../src/agentreins/adapters/models/openai_compat.py#L380)). Each `data:` line is one chunk: text pieces become `TextDelta`, `reasoning_content` pieces `ReasoningDelta`, the first piece of a tool call (with its name) `ToolUseStart` with a freshly minted ID, later pieces `ToolArgsDelta` with the same ID. At the end, `finish()` builds the full response with the **same** builder `get_response` uses, so both paths can't drift apart. The request asks for usage in the stream (`stream_options.include_usage`), so token counts match too.
 
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** our request, translated into what OpenAI receives. Note the provider's call ID `call_abc` (not ours), and the `tool` message placed before the user text.
+
+```bash
+uv run python - <<'EOF'
+import json
+from agentreins.adapters.models.openai_compat import to_payload
+from agentreins.types.content import Message, TextBlock, ToolResultBlock, ToolUseBlock
+from agentreins.types.model import ModelRequest
+
+request = ModelRequest(model="gpt-4.1-mini", system="Be brief.", messages=[
+    Message.user("Weather in Paris?"),
+    Message(role="assistant", content=[ToolUseBlock(id="OURS-1", provider_id="call_abc", name="get_weather", arguments={"city": "Paris"})]),
+    Message(role="user", content=[TextBlock(text="In French, please."), ToolResultBlock(tool_use_id="OURS-1", content=[TextBlock(text="18 C")])]),
+])
+print(json.dumps(to_payload(request)["messages"], indent=1))
+EOF
+```
+
+**Try:** a real recorded OpenAI reply parsed into our types, then every kind of provider failure turned into one of our six errors.
+
+```bash
+uv run python - <<'EOF'
+import asyncio, json, httpx
+from agentreins.adapters.models.openai_compat import OpenAIChatModel, from_completion
+from agentreins.types.content import Message
+from agentreins.types.errors import ModelError
+from agentreins.types.model import ModelRequest
+
+body = json.loads(json.loads(open("tests/recorded/openai/tool_call.json").read())["body"])
+[call] = from_completion(body).message.content
+print("ours:", call.id, "| OpenAI's:", call.provider_id, "| args:", call.arguments)
+
+async def main():
+    for status, text in [(429, "slow down"), (401, "bad key"), (400, "maximum context length exceeded"), (503, "down")]:
+        reply = lambda r, s=status, t=text: httpx.Response(s, json={"error": {"message": t}}, headers={"retry-after": "3"})
+        model = OpenAIChatModel(client=httpx.AsyncClient(transport=httpx.MockTransport(reply)))
+        try:
+            await model.get_response(ModelRequest(model="x", messages=[Message.user("hi")]))
+        except ModelError as e:
+            print(status, "->", type(e).__name__, "| retryable:", e.retryable)
+asyncio.run(main())
+EOF
+```
+
 ## Guarantees
 
 | Promise | Proven by |
