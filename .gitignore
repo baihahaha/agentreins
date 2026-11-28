@@ -60,6 +60,8 @@ cover/
 *.log
 local_settings.py
 db.sqlite3
+agentreins.db
+agentreins.db-*
 db.sqlite3-journal
 
 # Flask stuff:

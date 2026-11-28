@@ -33,4 +33,6 @@ A hook that raises is logged and skipped; each hook call has a time limit. Hooks
 
 ## Comparison
 
-To be completed when built: OpenAI Agents SDK `RunHooks`, Claude Agent SDK hooks, OpenTelemetry span processors.
+- **OpenAI Agents SDK `RunHooks` / `AgentHooks`:** one method per moment (`on_agent_start`, `on_tool_end`…); the interface grows with each new kind of moment. Ours is one `on_event`, so new event types need no interface change.
+- **Claude Agent SDK hooks:** can block or modify tool calls. Ours cannot: blocking is Policy's job, changing data the Redactor's, so there is one audited decision point for each.
+- **OpenTelemetry span processors:** observe-only and best effort, like ours; an OpenTelemetry exporter is planned as a hook.
