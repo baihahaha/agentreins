@@ -11,6 +11,8 @@ How the code works, end to end. For maintainers and contributors: read it to und
 
 ## How to read it
 
+**New here? Start with the [hands-on tour](TOUR.md):** the reading order below, with a copy-paste experiment after each step.
+
 This page first explains **how the code is organised** (the pieces), then shows **one agent run** (the pieces working together). Then read the area pages in order. Each has the same sections:
 
 1. **What it does**, in two or three sentences.
