@@ -10,7 +10,7 @@ import hashlib
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic import JsonValue
 
@@ -19,6 +19,7 @@ from agentreins.ledger.ledger import Ledger
 from agentreins.ledger.projections import project_messages
 from agentreins.ports.model import ModelAdapter
 from agentreins.runtime.hooks import HookDispatcher
+from agentreins.runtime.output import FINAL_RESULT, InvalidOutput, OutputSchema
 from agentreins.tools.harness import (
     Completed,
     NeedsApproval,
@@ -38,6 +39,7 @@ from agentreins.types.errors import (
 )
 from agentreins.types.events import (
     Event,
+    MessageAdded,
     ModelFailed,
     ModelRequested,
     ModelResponded,
@@ -50,12 +52,14 @@ from agentreins.types.events import (
     ToolCallRejected,
     ToolCallRequested,
     ToolCallStarted,
+    ToolRejectionReason,
 )
 from agentreins.types.identity import Principal
 from agentreins.types.ids import new_id
 from agentreins.types.model import ModelRequest, ModelResponse, ResponseComplete
-from agentreins.types.tools import ToolSpec
+from agentreins.types.tools import ToolResult, ToolSpec
 
+OutputT = TypeVar("OutputT")
 Sleep = Callable[[float], Awaitable[None]]
 Clock = Callable[[], float]
 
@@ -89,12 +93,12 @@ class ModelSettings:
 
 
 @dataclass(frozen=True, slots=True)
-class RunResult:
+class RunResult(Generic[OutputT]):
     """A finished run: the answer and what it cost."""
 
     run_id: str
-    output: str
-    """The final answer's text."""
+    output: OutputT
+    """The answer: an instance of the agent's ``output_type``, or the text if it has none."""
     message: Message
     """The final answer, with all its content blocks."""
     usage: Usage
@@ -123,6 +127,7 @@ class Runtime:
         budget: Budget | None = None,
         retry: RetryPolicy | None = None,
         settings: ModelSettings | None = None,
+        output: OutputSchema[Any] | None = None,
         sleep: Sleep = asyncio.sleep,
         clock: Clock = time.monotonic,
     ) -> None:
@@ -141,6 +146,8 @@ class Runtime:
         self.hooks = hooks or HookDispatcher()
         self.retry = retry or RetryPolicy()
         self.settings = settings or ModelSettings()
+        self.output = output
+        """When set, the answer must come through the ``final_result`` tool."""
         self.sleep = sleep
         self.clock = clock
 
@@ -152,7 +159,7 @@ class Runtime:
         session_id: str | None = None,
         run_key: str | None = None,
         governance_lifted: bool = False,
-    ) -> RunResult:
+    ) -> RunResult[Any]:
         """Run the agent on ``task`` until it answers. Raises :class:`RunError` if the run
         ends without an answer (budget, error, approval needed, cancellation)."""
         messages = [Message.user(task)] if isinstance(task, str) else list(task)
@@ -216,8 +223,12 @@ class _Run:
 
     async def execute(
         self, task: list[Message], run_key: str | None, governance_lifted: bool
-    ) -> RunResult:
+    ) -> RunResult[Any]:
         tools = await self.rt.harness.visible_tools(self.principal)
+        if any(t.name == FINAL_RESULT for t in tools):
+            raise ValueError(f"{FINAL_RESULT!r} is reserved for structured output; rename the tool")
+        if self.rt.output is not None:
+            tools = [*tools, self.rt.output.spec]
         await self.record(
             self.ev(
                 RunStarted,
@@ -237,9 +248,14 @@ class _Run:
                 self.check_budget()
                 response = await self.model_turn(tools)
                 calls = [b for b in response.message.content if isinstance(b, ToolUseBlock)]
-                if not calls:
-                    return await self.complete(response.message)
-                await self.tool_turn(calls)
+                if self.rt.output is not None:
+                    result = await self.output_turn(self.rt.output, response.message, calls)
+                    if result is not None:
+                        return result
+                elif not calls:
+                    return await self.complete(response.message, response.message.text)
+                else:
+                    await self.tool_turn(calls)
         except _Stop as stop:
             await self.fail(stop.reason, stop.message)
             raise RunError(stop.message, run_id=self.run_id, reason=stop.reason) from None
@@ -268,11 +284,15 @@ class _Run:
         if limit is not None and elapsed >= limit:
             raise _Stop("budget_exceeded", f"ran for {elapsed:.1f} s (max_wall_seconds {limit:g})")
 
-    async def complete(self, message: Message) -> RunResult:
-        await self.record(self.ev(RunCompleted, output=message, usage=self.usage))
+    async def complete(
+        self, message: Message, output: Any, structured: JsonValue = None
+    ) -> RunResult[Any]:
+        await self.record(
+            self.ev(RunCompleted, output=message, usage=self.usage, structured=structured)
+        )
         return RunResult(
             run_id=self.run_id,
-            output=message.text,
+            output=output,
             message=message,
             usage=self.usage,
             steps=self.steps,
@@ -361,16 +381,79 @@ class _Run:
             raise RuntimeError("model stream ended without a complete response")
         return final
 
+    # --- structured output ---------------------------------------------------------
+
+    async def output_turn(
+        self, schema: OutputSchema[Any], message: Message, calls: list[ToolUseBlock]
+    ) -> RunResult[Any] | None:
+        """The model's reply when an ``output_type`` is set. Returns the result once the
+        model has called ``final_result`` with a valid answer, else ``None`` (go on)."""
+        finals = [c for c in calls if c.name == FINAL_RESULT]
+        others = [c for c in calls if c.name != FINAL_RESULT]
+        if not calls:
+            # A plain-text answer: ask for the structured one (counts as a step).
+            reminder = Message.user(
+                f"Please give your final answer by calling the {FINAL_RESULT} tool."
+            )
+            await self.record(self.ev(MessageAdded, message=reminder, origin="runtime"))
+            return None
+        if not finals:
+            await self.tool_turn(calls)
+            return None
+
+        await self.record(*[self.requested(c) for c in finals])
+        answer, problem = self.validate_output(schema, finals[0])
+        if problem is not None:
+            for call in finals:
+                await self.reject(call.id, "invalid_arguments", problem)
+            if others:
+                await self.tool_turn(others)
+            return None
+
+        # A valid answer wins: other calls in the same reply never run (no side effects
+        # after the answer).
+        await self.record(
+            self.ev(
+                ToolCallCompleted,
+                call_id=finals[0].id,
+                result=ToolResult.text("Final answer accepted."),
+                duration_ms=0.0,
+            )
+        )
+        for call in finals[1:]:
+            await self.reject(call.id, "run_ended", "Only the first final answer is used.")
+        if others:
+            await self.record(*[self.requested(c) for c in others])
+            for call in others:
+                await self.reject(
+                    call.id,
+                    "run_ended",
+                    "The run ended with a final answer; this call did not run.",
+                )
+        return await self.complete(message, answer, schema.dump(answer))
+
+    @staticmethod
+    def validate_output(schema: OutputSchema[Any], call: ToolUseBlock) -> tuple[Any, str | None]:
+        if call.parse_error is not None:
+            return None, f"Arguments are not valid JSON: {call.parse_error}"
+        try:
+            return schema.validate(call.arguments), None
+        except InvalidOutput as exc:
+            return None, f"Invalid final answer: {exc}. Call {FINAL_RESULT} again, corrected."
+
+    def requested(self, call: ToolUseBlock) -> Maker:
+        return self.ev(ToolCallRequested, call_id=call.id, name=call.name, arguments=call.arguments)
+
+    async def reject(self, call_id: str, reason: ToolRejectionReason, message: str) -> None:
+        await self.record(
+            self.ev(ToolCallRejected, call_id=call_id, reason=reason, message=message)
+        )
+
     # --- one tool turn -------------------------------------------------------------
 
     async def tool_turn(self, calls: list[ToolUseBlock]) -> None:
         """Check every call, stop if one needs approval, run the rest in parallel."""
-        await self.record(
-            *[
-                self.ev(ToolCallRequested, call_id=c.id, name=c.name, arguments=c.arguments)
-                for c in calls
-            ]
-        )
+        await self.record(*[self.requested(c) for c in calls])
         checked = [await self.check(c) for c in calls]
         approvals = [c for c in checked if isinstance(c, NeedsApproval)]
         if approvals:
@@ -388,14 +471,7 @@ class _Run:
                     continue
                 outcome = ready
             assert isinstance(outcome, Rejected)
-            await self.record(
-                self.ev(
-                    ToolCallRejected,
-                    call_id=call.id,
-                    reason=outcome.reason,
-                    message=outcome.message,
-                )
-            )
+            await self.reject(call.id, outcome.reason, outcome.message)
         if not prepared:
             return
         # Intent records first, in one batch: nothing runs before all are on disk.

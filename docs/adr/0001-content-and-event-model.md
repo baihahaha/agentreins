@@ -63,12 +63,13 @@ timestamp:      datetime (UTC, timezone-aware)
 | `model.responded` | step, `ModelResponse` (message, stop reason, usage, model, request id), latency | |
 | `model.failed` | step, attempt, error class, message, retryable flag | One per failed attempt |
 | `tool.call.requested` | call_id, name, arguments | One per `ToolUseBlock`; emitted from the model response |
-| `tool.call.rejected` | call_id, reason (`unknown_tool`, `invalid_arguments`, `policy_denied`, `credentials_unavailable`), message for the model | Harness decision, never executed. Unparseable arguments count as `invalid_arguments`. `credentials_unavailable` added in M3 |
+| `tool.call.rejected` | call_id, reason (`unknown_tool`, `invalid_arguments`, `policy_denied`, `credentials_unavailable`, `run_ended`), message for the model | Never executed. Unparseable arguments count as `invalid_arguments`. `credentials_unavailable` added in M3; `run_ended` (a final answer arrived in the same reply) added with structured output |
 | `tool.call.started` | call_id, effect class, idempotency key | **The intent record.** For side-effecting tools this is written *before* execution |
 | `tool.call.completed` | call_id, `ToolResult`, duration | The tool returned; its result may still be a handled error | |
 | `tool.call.failed` | call_id, error, timeout flag, duration | The tool raised or timed out |
-| `run.completed` | output message, total usage, cost | |
+| `run.completed` | output message, total usage, cost, `structured` (the validated structured output as JSON, if any) | |
 | `run.failed` | reason (`max_steps`, `budget_exceeded`, `error`, `cancelled`), message, usage | |
+| `message.added` | a user-role message, origin (`runtime` or `user`) | A message added to the conversation after the start. Added with structured output (the runtime's reminder to answer with `final_result`); sessions will use `origin="user"` for follow-ups |
 
 Later ADRs add `run.interrupted` / `run.resumed` (approvals) and `context.compacted`.
 

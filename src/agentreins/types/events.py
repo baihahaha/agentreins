@@ -9,9 +9,9 @@ fields sit side by side; a field is nested only when it is an object of its own
 """
 
 from datetime import UTC, datetime
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, Self, TypeAlias
 
-from pydantic import AwareDatetime, Field, JsonValue
+from pydantic import AwareDatetime, Field, JsonValue, model_validator
 
 from agentreins.types._base import FrozenModel
 from agentreins.types.budget import Budget, Usage
@@ -66,6 +66,8 @@ class RunCompleted(_EventBase):
     output: Message
     usage: Usage
     cost_usd: float | None = Field(default=None, ge=0)
+    structured: JsonValue = None
+    """The validated structured output as JSON, when the agent has an ``output_type``."""
 
 
 RunFailureReason: TypeAlias = Literal["max_steps", "budget_exceeded", "error", "cancelled"]
@@ -114,6 +116,28 @@ class ModelFailed(_EventBase):
     retryable: bool
 
 
+# --- conversation ----------------------------------------------------------------------
+
+
+class MessageAdded(_EventBase):
+    """A user-side message added to the conversation after the run started.
+
+    ``origin="runtime"``: written by agentreins itself, e.g. asking the model to give its
+    final answer in the required structure. (``"user"`` is for follow-up messages from a
+    person, with sessions.)
+    """
+
+    type: Literal["message.added"] = "message.added"
+    message: Message
+    origin: Literal["user", "runtime"]
+
+    @model_validator(mode="after")
+    def _user_role(self) -> Self:
+        if self.message.role != "user":
+            raise ValueError("an added message must have role 'user'")
+        return self
+
+
 # --- tool calls ----------------------------------------------------------------------
 
 
@@ -127,7 +151,7 @@ class ToolCallRequested(_EventBase):
 
 
 ToolRejectionReason: TypeAlias = Literal[
-    "unknown_tool", "invalid_arguments", "policy_denied", "credentials_unavailable"
+    "unknown_tool", "invalid_arguments", "policy_denied", "credentials_unavailable", "run_ended"
 ]
 
 
@@ -178,6 +202,7 @@ Event: TypeAlias = Annotated[
     | ModelRequested
     | ModelResponded
     | ModelFailed
+    | MessageAdded
     | ToolCallRequested
     | ToolCallRejected
     | ToolCallStarted

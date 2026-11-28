@@ -45,9 +45,9 @@ agent = Agent("openai:gpt-4.1-mini", instructions="You are a stock clerk.", tool
 result = await agent.run("How many W1 do we have?")
 ```
 
-**1. Building the agent.** `_resolve_model` ([agent.py:213](../../src/agentreins/agent.py#L213)) turns `"openai:gpt-4.1-mini"` into an `OpenAIChatModel` plus the name `gpt-4.1-mini`. Nothing else happens yet. On the first run, `_build` ([agent.py:179](../../src/agentreins/agent.py#L179)) groups `@tool` functions into one `PythonToolSource`, builds the registry (asking each source for its tools), opens the default SQLite store, and creates the `Runtime`. `Agent` is the only place that names adapters; the runtime below it only knows ports.
+**1. Building the agent.** `_resolve_model` ([agent.py:269](../../src/agentreins/agent.py#L269)) turns `"openai:gpt-4.1-mini"` into an `OpenAIChatModel` plus the name `gpt-4.1-mini`. Nothing else happens yet. On the first run, `_build` ([agent.py:234](../../src/agentreins/agent.py#L234)) groups `@tool` functions into one `PythonToolSource`, builds the registry (asking each source for its tools), opens the default SQLite store, and creates the `Runtime`. `Agent` is the only place that names adapters; the runtime below it only knows ports.
 
-**2. Starting the run.** `_Run.execute` ([loop.py:217](../../src/agentreins/runtime/loop.py#L217)) records `run.started`: the task, model, visible tools, budget and principal (`Principal(id="local")` if none was given). This is the whole loop:
+**2. Starting the run.** `_Run.execute` ([loop.py:224](../../src/agentreins/runtime/loop.py#L224)) records `run.started`: the task, model, visible tools, budget and principal (`Principal(id="local")` if none was given). This is the whole loop:
 
 ```python
 while True:
@@ -59,15 +59,28 @@ while True:
     await self.tool_turn(calls)
 ```
 
-**3. A model turn** ([loop.py:286](../../src/agentreins/runtime/loop.py#L286)). The conversation is rebuilt from the log (`project_messages`), and the context manager passes it through unchanged while it fits in 80% of the model's window. `model.requested` records a fingerprint (SHA-256) of the exact request. The model answers with a call to `get_stock(sku="W1")`; `model.responded` records it, and the loop continues with the reply *as stored*, so a redactor's changes apply to what the model sees next.
+**3. A model turn** ([loop.py:306](../../src/agentreins/runtime/loop.py#L306)). The conversation is rebuilt from the log (`project_messages`), and the context manager passes it through unchanged while it fits in 80% of the model's window. `model.requested` records a fingerprint (SHA-256) of the exact request. The model answers with a call to `get_stock(sku="W1")`; `model.responded` records it, and the loop continues with the reply *as stored*, so a redactor's changes apply to what the model sees next.
 
 If the provider fails, `model.failed` records the attempt. Retryable errors wait (1 s, 2 s…, or the provider's `retry_after`, capped at 30 s) and try again, at most 3 attempts. `ContextTooLong` gets one retry only if the strategy can shrink the request.
 
-**4. A tool turn** ([loop.py:366](../../src/agentreins/runtime/loop.py#L366)). For every call: `tool.call.requested`, then the harness checks it (validation, policy). If any call needs approval, the run stops before anything runs. Rejected calls are recorded; the rest get credentials. Then **all** `tool.call.started` records are written in one batch, and only after that do the tools run, in parallel (`asyncio.gather`). Each outcome is recorded the moment its tool finishes.
+**4. A tool turn** ([loop.py:454](../../src/agentreins/runtime/loop.py#L454)). For every call: `tool.call.requested`, then the harness checks it (validation, policy). If any call needs approval, the run stops before anything runs. Rejected calls are recorded; the rest get credentials. Then **all** `tool.call.started` records are written in one batch, and only after that do the tools run, in parallel (`asyncio.gather`). Each outcome is recorded the moment its tool finishes.
 
-**5. Recording.** Events need a `seq` that is only known when they are written. `ev(EventClass, **fields)` ([loop.py:194](../../src/agentreins/runtime/loop.py#L194)) binds all other fields at once; `record()` ([loop.py:201](../../src/agentreins/runtime/loop.py#L201)) assigns the next `seq` values and appends under a lock, since parallel tools finish concurrently. Each stored event then goes to the hooks.
+**5. Recording.** Events need a `seq` that is only known when they are written. `ev(EventClass, **fields)` ([loop.py:201](../../src/agentreins/runtime/loop.py#L201)) binds all other fields at once; `record()` ([loop.py:208](../../src/agentreins/runtime/loop.py#L208)) assigns the next `seq` values and appends under a lock, since parallel tools finish concurrently. Each stored event then goes to the hooks.
 
 **6. The answer.** On the next turn the model sees the tool result (`"7"`) and answers in text. No tool calls: `run.completed` is recorded with the answer and the total usage, and `run` returns a `RunResult` (`output`, `message`, `usage`, `steps`, `run_id`). Had the run ended without an answer, `RunError` would be raised, with the reason and the `run_id` to look it up in the log.
+
+### Structured output
+
+With `Agent(..., output_type=Order)` the loop changes in one place, `output_turn` (in [loop.py](../../src/agentreins/runtime/loop.py)): the model is also given a hidden `final_result` tool whose arguments are the fields of `Order` ([output.py](../../src/agentreins/runtime/output.py)).
+
+| The model's reply | What happens |
+|---|---|
+| Calls `final_result` with a valid answer | `run.completed` with `structured` set; `result.output` is the `Order`. Other tool calls in the same reply are rejected (`run_ended`) and never run |
+| Calls `final_result` with an invalid answer | Rejected as `invalid_arguments`; the model sees the validation errors and tries again (a new step). Other tool calls in the reply run normally |
+| Answers in plain text | The runtime adds a reminder (`message.added`, origin `runtime`) and asks again (a new step) |
+| Calls only normal tools | A normal tool turn |
+
+`max_steps` bounds a model that never gets it right. `Agent` is generic, so `result.output` has the type of `output_type` in your editor (`str` without it).
 
 ## Guarantees
 
@@ -85,6 +98,7 @@ If the provider fails, `model.failed` records the attempt. Retryable errors wait
 | Broken or hanging hooks never stop a run | [test_failing_and_hanging_hooks_never_stop_a_run](../../tests/unit/runtime/test_loop.py#L508) |
 | One agent serves concurrent runs | [test_one_agent_many_concurrent_runs](../../tests/unit/test_agent.py#L143) |
 | Every offline example runs | [test_examples.py](../../tests/unit/test_examples.py) |
+| Structured answers are validated and typed; invalid ones are retried; nothing runs after a valid answer | [test_structured_output.py](../../tests/unit/test_structured_output.py) |
 
 ## Design choices
 
@@ -131,6 +145,5 @@ class PrintAnswer:
 - **Approval stops the run.** Pausing and resuming after a human decides arrives in M7.
 - **No resume yet.** A crashed run stays in the log as unfinished; picking it up again (recovery, sessions, run keys in practice) is M6.
 - **No cost budget.** `max_cost_usd` raises an error until agentreins knows model prices.
-- **Text answers only.** Structured output (`output_type=`) comes in a separate PR.
 - **One model per agent.** Switching models mid-run (fallbacks) is not supported.
 - **The default store is a file in the working directory** (`agentreins.db`). Pass `store=` to put it elsewhere, or `InMemoryEventStore()` in tests.

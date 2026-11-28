@@ -9,6 +9,7 @@ from agentreins.types.budget import Budget, Usage
 from agentreins.types.content import Message, ToolUseBlock
 from agentreins.types.events import (
     Event,
+    MessageAdded,
     ModelFailed,
     ModelRequested,
     ModelResponded,
@@ -83,12 +84,13 @@ def one_of_each() -> list[Event]:
             run_id=RUN, seq=9, output=Message.assistant("Done: PO-7"), usage=Usage(input_tokens=9)
         ),
         RunFailed(run_id=RUN, seq=10, reason="cancelled"),
+        MessageAdded(run_id=RUN, seq=11, message=Message.user("Please answer."), origin="runtime"),
     ]
 
 
 def test_every_event_type_is_covered() -> None:
     types = {type(e) for e in one_of_each()}
-    assert len(types) == 11
+    assert len(types) == 12
 
 
 @pytest.mark.parametrize("event", one_of_each(), ids=lambda e: e.type)
@@ -159,3 +161,8 @@ def test_run_ref() -> None:
     assert ref.session_id is None
     with pytest.raises(ValidationError):
         RunRef(run_id=RUN, status="paused", last_seq=0)  # pyright: ignore[reportArgumentType]
+
+
+def test_added_messages_are_user_messages() -> None:
+    with pytest.raises(ValidationError, match="role 'user'"):
+        MessageAdded(run_id=RUN, seq=0, message=Message.assistant("hi"), origin="runtime")

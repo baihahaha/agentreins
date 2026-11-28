@@ -54,12 +54,13 @@ All SQLite calls run in a worker thread (`asyncio.to_thread`), so disk I/O never
 
 ## Walkthrough: rebuilding the conversation
 
-`project_messages` ([projections.py:24](../../src/agentreins/ledger/projections.py#L24)) walks the events once:
+`project_messages` ([projections.py:25](../../src/agentreins/ledger/projections.py#L25)) walks the events once:
 
 | Event | Becomes |
 |---|---|
 | `run.started` | its input messages |
 | `model.responded` | the assistant message; its tool calls are now "open" |
+| `message.added` | that user message (e.g. the runtime asking for a structured answer) |
 | `tool.call.completed` | a `ToolResultBlock` with the tool's content |
 | `tool.call.failed` | an error result: `"Tool failed: <error>"` or `"Tool timed out"` |
 | `tool.call.rejected` | an error result with the rejection message |
@@ -87,7 +88,7 @@ And for the ledger and projection:
 |---|---|
 | A redactor that fails or changes identity stores nothing | [test_bad_redactor_fails_closed](../../tests/unit/ledger/test_ledger.py#L59) |
 | The store gets the redacted events, and so does the caller | [test_store_receives_redacted_events_and_caller_gets_them_back](../../tests/unit/ledger/test_ledger.py#L49) |
-| A result with no matching call, or two results for one call, is an error | [test_result_without_matching_call_is_rejected](../../tests/unit/ledger/test_projections.py#L74), [test_two_results_for_one_call_are_rejected](../../tests/unit/ledger/test_projections.py#L91) |
+| A result with no matching call, or two results for one call, is an error | [test_result_without_matching_call_is_rejected](../../tests/unit/ledger/test_projections.py#L87), [test_two_results_for_one_call_are_rejected](../../tests/unit/ledger/test_projections.py#L104) |
 
 ## Design choices
 

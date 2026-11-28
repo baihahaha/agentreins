@@ -6,7 +6,7 @@ place allowed to choose adapters, so the engines below never depend on any of th
 
 import asyncio
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any
+from typing import Any, Generic, Self, TypeVar, cast, overload
 
 from agentreins.adapters.context_strategies.keep_all import KeepAll
 from agentreins.adapters.credentials.env import EnvCredentialProvider
@@ -27,17 +27,21 @@ from agentreins.ports.redactor import Redactor
 from agentreins.ports.tool_source import ToolSource
 from agentreins.runtime.hooks import HookDispatcher
 from agentreins.runtime.loop import ModelSettings, RetryPolicy, RunResult, Runtime
+from agentreins.runtime.output import OutputSchema
 from agentreins.tools.harness import ToolHarness
 from agentreins.tools.registry import ToolRegistry
 from agentreins.types.budget import Budget
 from agentreins.types.content import Message
 from agentreins.types.identity import Principal
 
+OutputT = TypeVar("OutputT")
+_T = TypeVar("_T")  # the second __init__ overload may not use the class's own TypeVar
+
 DEFAULT_DB = "agentreins.db"
 PROVIDERS = ("openai",)
 
 
-class Agent:
+class Agent(Generic[OutputT]):
     """An agent: a model, instructions, tools, and the governance around them.
 
     >>> agent = Agent("openai:gpt-4.1-mini", tools=[get_stock])
@@ -46,6 +50,10 @@ class Agent:
     ``model`` is either ``"provider:model-name"`` (today: ``openai:…``, which also
     reads ``OPENAI_API_KEY``) or an adapter object such as ``OpenAIChatModel(...)`` with
     ``model_name=``. ``tools`` mixes ``@tool`` functions and tool sources.
+
+    ``output_type`` (e.g. a pydantic model) makes the answer structured: the model must
+    give it through a hidden ``final_result`` tool, it is validated, and
+    ``result.output`` is an instance of that type. Without it, ``result.output`` is text.
 
     Everything else has a safe default:
 
@@ -62,10 +70,53 @@ class Agent:
     ``async with``) to release the database and network connections.
     """
 
+    @overload
+    def __init__(
+        self: "Agent[str]",
+        model: str | ModelAdapter,
+        *,
+        output_type: None = None,
+        model_name: str | None = None,
+        instructions: str | None = None,
+        tools: Sequence[FunctionTool[..., Any] | ToolSource] = (),
+        policy: Policy | None = None,
+        credentials: CredentialProvider | None = None,
+        store: EventStore | None = None,
+        redactor: Redactor | None = None,
+        context: ContextStrategy | None = None,
+        hooks: Sequence[Hooks] = (),
+        budget: Budget | None = None,
+        retry: RetryPolicy | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: "Agent[_T]",
+        model: str | ModelAdapter,
+        *,
+        output_type: type[_T],
+        model_name: str | None = None,
+        instructions: str | None = None,
+        tools: Sequence[FunctionTool[..., Any] | ToolSource] = (),
+        policy: Policy | None = None,
+        credentials: CredentialProvider | None = None,
+        store: EventStore | None = None,
+        redactor: Redactor | None = None,
+        context: ContextStrategy | None = None,
+        hooks: Sequence[Hooks] = (),
+        budget: Budget | None = None,
+        retry: RetryPolicy | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> None: ...
+
     def __init__(
         self,
         model: str | ModelAdapter,
         *,
+        output_type: Any = None,
         model_name: str | None = None,
         instructions: str | None = None,
         tools: Sequence[FunctionTool[..., Any] | ToolSource] = (),
@@ -80,6 +131,7 @@ class Agent:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> None:
+        self._output = OutputSchema[Any](output_type) if output_type is not None else None
         self._model, self._model_name = _resolve_model(model, model_name)
         self._owns_model = isinstance(model, str)
         self._instructions = instructions
@@ -115,7 +167,7 @@ class Agent:
         principal: Principal | None = None,
         session_id: str | None = None,
         run_key: str | None = None,
-    ) -> RunResult:
+    ) -> RunResult[OutputT]:
         """Run the agent on ``task`` until it answers.
 
         ``principal`` is who the run acts for: policy, credentials and the audit log
@@ -123,7 +175,10 @@ class Agent:
         never in production. Raises ``RunError`` if the run ends without an answer.
         """
         runtime = await self._build()
-        return await runtime.run(task, principal=principal, session_id=session_id, run_key=run_key)
+        result = await runtime.run(
+            task, principal=principal, session_id=session_id, run_key=run_key
+        )
+        return cast(RunResult[OutputT], result)
 
     def run_sync(
         self,
@@ -132,7 +187,7 @@ class Agent:
         principal: Principal | None = None,
         session_id: str | None = None,
         run_key: str | None = None,
-    ) -> RunResult:
+    ) -> RunResult[OutputT]:
         """:meth:`run` for plain scripts: starts an event loop, runs, closes the agent.
 
         Inside async code (a notebook, a web server), use ``await agent.run(...)``.
@@ -144,7 +199,7 @@ class Agent:
         else:
             raise RuntimeError("run_sync() cannot be used inside async code: use await agent.run()")
 
-        async def once() -> RunResult:
+        async def once() -> RunResult[OutputT]:
             try:
                 return await self.run(
                     task, principal=principal, session_id=session_id, run_key=run_key
@@ -170,7 +225,7 @@ class Agent:
             self._store = None
         self._runtime, self._registry, self._building = None, None, asyncio.Lock()
 
-    async def __aenter__(self) -> "Agent":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *exc: object) -> None:
@@ -199,6 +254,7 @@ class Agent:
                 budget=self._budget,
                 retry=self._retry,
                 settings=self._settings,
+                output=self._output,
             )
             return self._runtime
 
