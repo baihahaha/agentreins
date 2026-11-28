@@ -70,6 +70,67 @@ When the next `model.responded` arrives (or the events end), the open step close
 
 Same events in, same messages out, every time. That determinism is what makes resume correct: the model gets exactly what it would have got without the crash.
 
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** save a run to SQLite, read it back after "restarting", and see a conflicting write refused.
+
+```bash
+uv run python - <<'EOF'
+import asyncio, tempfile, os
+from agentreins.adapters.event_stores.sqlite import SQLiteEventStore
+from agentreins.types.content import Message
+from agentreins.types.events import RunStarted, ModelRequested
+from agentreins.types.identity import Principal
+from agentreins.types.errors import ConflictError
+
+async def main():
+    path = os.path.join(tempfile.mkdtemp(), "tour.db")
+    store = SQLiteEventStore(path)
+    start = RunStarted(run_id="r1", seq=0, input=[Message.user("hi")], model="m", principal=Principal(id="ana"))
+    await store.append("r1", [start], expected_seq=-1)
+    await store.close()
+
+    store = SQLiteEventStore(path)                       # like a new process
+    print("after reopening:", [e.type for e in await store.read("r1")])
+    ask = ModelRequested(run_id="r1", seq=1, step=1, message_count=1, input_fingerprint="f")
+    await store.append("r1", [ask], expected_seq=0)       # writer A
+    try:
+        await store.append("r1", [ask], expected_seq=0)   # writer B, same position
+    except ConflictError as e:
+        print("second writer refused:", e)
+    await store.close()
+
+asyncio.run(main())
+EOF
+```
+
+**Try:** rebuild the conversation from events. Tool results come back in call order, even though `b` finished first.
+
+```bash
+uv run python - <<'EOF'
+from agentreins.ledger.projections import project_messages
+from agentreins.types.budget import Usage
+from agentreins.types.content import Message, ToolUseBlock
+from agentreins.types.events import RunStarted, ModelResponded, ToolCallCompleted
+from agentreins.types.identity import Principal
+from agentreins.types.model import ModelResponse
+from agentreins.types.tools import ToolResult
+
+calls = Message(role="assistant", content=[ToolUseBlock(id="a", name="t"), ToolUseBlock(id="b", name="t")])
+events = [
+    RunStarted(run_id="r", seq=0, input=[Message.user("go")], model="m", principal=Principal(id="ana")),
+    ModelResponded(run_id="r", seq=1, step=1, latency_ms=1,
+        response=ModelResponse(message=calls, stop_reason="tool_use", usage=Usage(), model="m")),
+    ToolCallCompleted(run_id="r", seq=2, call_id="b", result=ToolResult.text("B"), duration_ms=1),
+    ToolCallCompleted(run_id="r", seq=3, call_id="a", result=ToolResult.text("A"), duration_ms=1),
+]
+for m in project_messages(events):
+    print(m.role, [getattr(b, "tool_use_id", None) or getattr(b, "text", None) or b.type for b in m.content])
+EOF
+```
+
 ## Guarantees
 
 The five promises of ADR-0005 D5, checked against **both** stores by the contract tests:

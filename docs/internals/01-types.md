@@ -73,6 +73,54 @@ Message(role="user", content=[ToolResultBlock(tool_use_id="0193…", content=[Te
 
 `Event` ([events.py:198](../../src/agentreins/types/events.py#L198)) is a discriminated union: pydantic reads `type` and builds exactly `ToolCallCompleted`. The messages of step 1–3 are rebuilt from these events by the projection (see [02 Storage](02-storage.md)).
 
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** a message, its JSON, and an event read back as its exact class.
+
+```bash
+uv run python - <<'EOF'
+from pydantic import TypeAdapter
+from agentreins.types.content import Message, ToolUseBlock
+from agentreins.types.events import Event, ModelResponded
+from agentreins.types.model import ModelResponse
+from agentreins.types.budget import Usage
+
+msg = Message(role="assistant", content=[ToolUseBlock(id="c1", name="get_stock", arguments={"sku": "W1"})])
+print("JSON:", msg.model_dump_json())
+
+event = ModelResponded(run_id="r1", seq=2, step=1, latency_ms=12,
+    response=ModelResponse(message=msg, stop_reason="tool_use", usage=Usage(input_tokens=9), model="m"))
+stored = TypeAdapter(Event).dump_json(event)
+back = TypeAdapter(Event).validate_json(stored)
+print("read back as:", type(back).__name__, "| same?", back == event)
+
+from pydantic import ValidationError
+try:
+    Message(role="user", content=[ToolUseBlock(id="c1", name="x")])
+except ValidationError as e:
+    print("refused:", e.errors()[0]["msg"])
+EOF
+```
+
+**Try:** credentials refuse to leak.
+
+```bash
+uv run python - <<'EOF'
+import pickle
+from agentreins.types.identity import Credentials
+
+key = Credentials("erp", "s3cret-token")
+print("printed:", key)                     # the secret is hidden
+print("revealed:", key.reveal())           # only on purpose
+try:
+    pickle.dumps(key)
+except TypeError as e:
+    print("pickle:", e)
+EOF
+```
+
 ## Guarantees
 
 | Promise | How | Proven by |

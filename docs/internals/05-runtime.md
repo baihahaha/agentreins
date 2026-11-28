@@ -82,6 +82,104 @@ With `Agent(..., output_type=Order)` the loop changes in one place, `output_turn
 
 `max_steps` bounds a model that never gets it right. `Agent` is generic, so `result.output` has the type of `output_type` in your editor (`str` without it).
 
+## Try it
+
+Run from the repo root (offline, free). Change the inputs and run again.
+
+**Try:** the first example.
+
+```bash
+uv run python examples/01_hello_tool.py
+```
+
+**Try:** watch a run as it happens, with a hook, then print its event log. Change the script to see other paths: put a `ProviderUnavailable("down")` first in the list (a retry, after a 1 s wait), or use `create_po` (the run stops: approval needed).
+
+```bash
+uv run python - <<'EOF'
+import asyncio
+from agentreins import Agent, tool
+from agentreins.adapters.event_stores.in_memory import InMemoryEventStore
+from agentreins.testing import FakeModel
+
+@tool(effect="read_only")
+def get_stock(sku: str) -> int:
+    """Units on hand."""
+    return {"W1": 7, "W2": 3}[sku]
+
+class Show:
+    async def on_event(self, event):
+        if hasattr(event, "seq"):
+            print(f"  event {event.seq:2} {event.type}")
+
+both = FakeModel.call("get_stock", {"sku": "W1"})
+both = both.model_copy(update={"message": both.message.model_copy(update={"content": [
+    *both.message.content, *FakeModel.call("get_stock", {"sku": "W2"}).message.content]})})
+model = FakeModel([both, FakeModel.reply("W1: 7, W2: 3.")])
+
+async def main():
+    store = InMemoryEventStore()
+    agent = Agent(model, tools=[get_stock], store=store, hooks=[Show()])
+    result = await agent.run("Stock of W1 and W2?")
+    print("answer:", result.output, "| steps:", result.steps)
+    print("turn 2 sent to the model:", [(m.role, [b.type for b in m.content]) for m in model.requests[1].messages])
+asyncio.run(main())
+EOF
+```
+
+**Try:** every run ends. A model that keeps calling tools is stopped by `max_steps`, and the reason is in the log.
+
+```bash
+uv run python - <<'EOF'
+from agentreins import Agent, Budget, RunError, tool
+from agentreins.adapters.event_stores.in_memory import InMemoryEventStore
+from agentreins.testing import FakeModel
+
+@tool(effect="read_only")
+def ping() -> str:
+    """Ping."""
+    return "pong"
+
+agent = Agent(FakeModel([FakeModel.call("ping")] * 10), tools=[ping], store=InMemoryEventStore(), budget=Budget(max_steps=3))
+try:
+    agent.run_sync("loop forever")
+except RunError as e:
+    print("stopped:", e.reason, "|", e)
+EOF
+```
+
+**Try:** structured output, with the second example. The scripted model first gives an invalid answer (`quantity=-9`), gets the validation error back, and corrects it.
+
+```bash
+uv run python examples/02_structured_output.py
+```
+
+**Try:** a model that answers in plain text gets reminded, and the reminder is in the log.
+
+```bash
+uv run python - <<'EOF'
+import asyncio
+from pydantic import BaseModel
+from agentreins import Agent
+from agentreins.adapters.event_stores.in_memory import InMemoryEventStore
+from agentreins.testing import FakeModel
+
+class City(BaseModel):
+    name: str
+    country: str
+
+model = FakeModel([FakeModel.reply("It's Paris, in France."), FakeModel.call("final_result", {"name": "Paris", "country": "FR"})])
+
+async def main():
+    store = InMemoryEventStore()
+    result = await Agent(model, output_type=City, store=store).run("Capital of France?")
+    print("output:", repr(result.output))
+    for e in await store.read(result.run_id):
+        extra = f'  "{e.message.text}"' if e.type == "message.added" else ""
+        print(f"  {e.seq:2} {e.type}{extra}")
+asyncio.run(main())
+EOF
+```
+
 ## Guarantees
 
 | Promise | Proven by |
