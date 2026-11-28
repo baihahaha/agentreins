@@ -97,3 +97,19 @@ class CredentialsUnavailable(AgentReinsError):
 
 class PolicyUnavailable(AgentReinsError):
     """The policy raised or timed out and the harness is set to fail the run (ADR-0004 D3)."""
+
+
+# --- run errors ----------------------------------------------------------------------
+
+
+class RunError(AgentReinsError):
+    """A run ended without an answer. Its ``run.failed`` event is in the log.
+
+    ``reason`` is the same as the event's: ``max_steps``, ``budget_exceeded``,
+    ``error`` or ``cancelled``.
+    """
+
+    def __init__(self, message: str, *, run_id: str, reason: str) -> None:
+        super().__init__(message)
+        self.run_id = run_id
+        self.reason = reason

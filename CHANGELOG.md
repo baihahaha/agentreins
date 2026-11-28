@@ -5,6 +5,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ## [Unreleased]
 
 ### Added
+- Runtime engine (M5a): the agent loop (`Runtime.run`) with parallel tool calls, retries with backoff, step/token/wall-time budgets, cancellation, and every step in the event log; `ContextManager` with the keep-all strategy; hook dispatch; `RunError`. Context-strategy contract tests.
 - Models (M4): `FakeModel` (scripted, for tests and examples) and `OpenAIChatModel` (OpenAI Chat Completions and compatible servers, via `httpx` in the `providers` extra) with streaming and normalized errors; ModelAdapter contract tests; recorded tests replaying real OpenAI responses; live tests (`pytest -m live`).
 - Internals guide (`docs/internals/`): overview of one agent run, plus pages for types, storage and tools. Docstrings required on public code (ruff `D101`–`D103`); a test keeps doc links valid.
 - Tools (M3): `@tool` decorator and `PythonToolSource` (pydantic-validated arguments), `ToolRegistry`, `ToolHarness` (check -> prepare -> execute; policy timeout and fail-closed handling; credential scrubbing), built-in basic schema check, optional `ArgumentValidator` port, `DefaultPolicy`, `EnvCredentialProvider`; rejection reason `credentials_unavailable`.

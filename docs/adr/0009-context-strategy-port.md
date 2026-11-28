@@ -34,6 +34,10 @@ Before each model call, when the estimated size exceeds a threshold (default 80%
 
 Defaults: keep everything; later, truncation (drop the oldest complete turns).
 
+## Implementation notes (M5a)
+
+The context manager estimates the request size (about 4 characters per token, counting messages, system instructions and tool specs). Above 80% of `max_context_tokens` it calls the strategy with what is left after the system instructions and tools. On `ContextTooLong` it asks the strategy for a pick at half that budget; if that drops nothing (as with keep-all), the run fails without a retry instead of sending the same request again.
+
 ## Comparison
 
 To be completed when built: LangChain `trim_messages`, Pydantic AI history processors, OpenAI Agents SDK sessions, Claude Agent SDK compaction.

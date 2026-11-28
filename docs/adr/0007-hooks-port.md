@@ -27,6 +27,10 @@ Hooks cannot change or stop a run. Blocking is Policy's job (ADR-0004); changing
 
 A hook that raises is logged and skipped; each hook call has a time limit. Hooks are best effort: anything needing every event guaranteed (e.g. audit export) reads the event store.
 
+## Implementation notes (M5a)
+
+`HookDispatcher` calls hooks one after another, in registration order, with a 1 s limit per call (configurable). Model replies are streamed only when at least one hook is registered, so runs without hooks make one plain call per turn.
+
 ## Comparison
 
 To be completed when built: OpenAI Agents SDK `RunHooks`, Claude Agent SDK hooks, OpenTelemetry span processors.
